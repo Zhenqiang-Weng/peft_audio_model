@@ -1,0 +1,7 @@
+data/
+model/
+.idea
+_pycache_
+checkpoints/
+.cache
+weights/

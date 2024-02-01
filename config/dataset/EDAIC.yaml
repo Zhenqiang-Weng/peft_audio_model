@@ -1,0 +1,4 @@
+
+root: './data/edaic'
+audio_file: 'dataCropped'
+cache: './cache'

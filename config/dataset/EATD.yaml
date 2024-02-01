@@ -1,0 +1,7 @@
+
+
+root: './data/EATD-Corpus'
+cache: './cache'
+
+
+fold_i: 1
