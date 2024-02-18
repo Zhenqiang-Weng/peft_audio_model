@@ -1,7 +1,7 @@
+_pycache_
 data/
 model/
-.idea
-_pycache_
 checkpoints/
-.cache
 weights/
+.idea
+.cache

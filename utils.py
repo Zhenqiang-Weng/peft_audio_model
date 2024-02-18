@@ -4,6 +4,12 @@ from random import randint
 
 from datasets import load_metric
 
+acc_metric = load_metric('./metrics/accuracy/accuracy.py', trust_remote_code=True)
+recall_metric = load_metric("./metrics/recall/recall.py", trust_remote_code=True)
+precision_metric = load_metric("./metrics/precision/precision.py", trust_remote_code=True)
+f1_metric = load_metric("./metrics/f1/f1.py", trust_remote_code=True)
+roc_auc_score = load_metric("./metrics/roc_auc/roc_auc.py", trust_remote_code=True)
+
 
 def random_subsample(wav: np.ndarray, max_length: float, sample_rate: int = 16000):
     """Randomly sample chunks of `max_length` seconds from the input audio"""
@@ -12,13 +18,6 @@ def random_subsample(wav: np.ndarray, max_length: float, sample_rate: int = 1600
         return wav
     random_offset = randint(0, len(wav) - sample_length - 1)
     return wav[random_offset: random_offset + sample_length]
-
-
-acc_metric = load_metric('./metrics/accuracy/accuracy.py', trust_remote_code=True)
-recall_metric = load_metric("./metrics/recall/recall.py", trust_remote_code=True)
-precision_metric = load_metric("./metrics/precision/precision.py", trust_remote_code=True)
-f1_metric = load_metric("./metrics/f1/f1.py", trust_remote_code=True)
-roc_auc_score = load_metric("./metrics/roc_auc/roc_auc.py", trust_remote_code=True)
 
 
 # acc_metric = evaluate.load("accuracy")

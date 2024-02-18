@@ -2,10 +2,7 @@ import transformers
 import datasets
 from datasets import (
     load_dataset,
-    load_metric,
 )
-import torch
-import evaluate
 from transformers import (
     # Wav2Vec2ForSequenceClassification,
     AutoFeatureExtractor,
@@ -31,11 +28,11 @@ class DataArguments:
     )
     dataset_script_path: str = field(
         default="./scripts/cmdc_load_scripts.py",
-        metadata={"help": ""},
+        metadata={"help": " "},
     )
     cache_file_path: str = field(
         default="./cache",
-        metadata={"help": ""},
+        metadata={"help": " "},
     )
 
 
@@ -51,7 +48,7 @@ def main():
     parser = HfArgumentParser((DataArguments, ModelArguments))
     data_args, model_args = parser.parse_args_into_dataclasses()
     train_arguments = TrainingArguments(
-        output_dir='./checkpoints/BitFit/chinese-hubert-large',
+        output_dir='./checkpoints/BitFit/chinese-hubert-large/cmdc',
         do_train=True,
         do_eval=True,
         fp16=True,
