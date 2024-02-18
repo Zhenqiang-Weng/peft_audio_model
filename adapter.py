@@ -1,14 +1,18 @@
 import os
-
+import json
 import torch
 import transformers
 import datasets
-from peft import TaskType, LoraConfig, get_peft_model
+from peft import (
+    TaskType,
+    get_peft_model,
+)
 from datasets import load_dataset
 from utils import *
 
 from transformers import (
     AutoFeatureExtractor,
+    AutoModelForAudioClassification,
     Trainer,
     TrainingArguments,
     HfArgumentParser,
@@ -64,8 +68,25 @@ def main():
     feature_extractor = AutoFeatureExtractor.from_pretrained(model_args.model_path)
 
     # model
-    model = Wav2Vec2ForSequenceClassification.from_pretrained(model_args.model_path, ignore_mismatched_sizes=True)
+    model = Wav2Vec2ForSequenceClassification.from_pretrained(
+        model_args.model_path,
+        ignore_mismatched_sizes=True,
+    )
 
+    print(model)
+
+    # adapter ft
+    total_params = 0
+    trainable_params = 0
+    for name, parameters in model.named_parameters():
+        total_params += parameters.numel()
+        if 'adapter' not in name:
+            parameters.requires_grad = False
+        else:
+            trainable_params += parameters.numel()
+    print(
+        f"total parameters:{total_params},trainable parameters:{trainable_params},r%:{trainable_params / total_params * 100}"
+    )
 
     # data
     dataset = load_dataset(data_args.dataset_script_path, trust_remote_code=True)

@@ -2028,11 +2028,6 @@ class Wav2Vec2ForCTC(Wav2Vec2PreTrainedModel):
 class Wav2Vec2ForSequenceClassification(Wav2Vec2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
-
-        if hasattr(config, "add_adapter") and config.add_adapter:
-            raise ValueError(
-                "Sequence classification does not support the use of Wav2Vec2 adapters (config.add_adapter=True)"
-            )
         self.wav2vec2 = Wav2Vec2Model(config)
         num_layers = config.num_hidden_layers + 1  # transformer layers + input embeddings
         if config.use_weighted_layer_sum:
