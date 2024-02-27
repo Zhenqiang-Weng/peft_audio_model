@@ -47,24 +47,36 @@ class ModelArguments:
 def main():
     parser = HfArgumentParser((DataArguments, ModelArguments))
     data_args, model_args = parser.parse_args_into_dataclasses()
+
+    output_dir = data_args.dataset_script_path.split('/')[-1].replace('.py', '') + '/' + \
+                 model_args.model_path.split('/')[-1]
+
     train_arguments = TrainingArguments(
-        output_dir='./checkpoints/BitFit/chinese-hubert-large/cmdc',
+        output_dir='./checkpoints/BitFit/' + output_dir,
         do_train=True,
         do_eval=True,
         fp16=True,
         # gradient_accumulation_steps=8,
         logging_steps=10,
-        per_device_train_batch_size=2,
+        per_device_train_batch_size=4,
         num_train_epochs=500,
         evaluation_strategy='steps',
         eval_steps=100,
-        learning_rate=2e-4,
+        learning_rate=2e-3,
         metric_for_best_model="roc_auc"
     )
 
     feature_extractor = AutoFeatureExtractor.from_pretrained(model_args.model_path)
-    model = Wav2Vec2ForSequenceClassification.from_pretrained(model_args.model_path, ignore_mismatched_sizes=True)
-    dataset = load_dataset(data_args.dataset_script_path, trust_remote_code=True)
+    model = Wav2Vec2ForSequenceClassification.from_pretrained(
+        model_args.model_path,
+        ignore_mismatched_sizes=True,
+        cache_dir='./cache/models',
+    )
+    dataset = load_dataset(
+        data_args.dataset_script_path,
+        trust_remote_code=True,
+        cache_dir='./cache'
+    )
 
     model_input_name = feature_extractor.model_input_names[0]
 

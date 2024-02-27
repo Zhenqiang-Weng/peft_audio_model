@@ -13,7 +13,8 @@ from transformers import (
     TrainingArguments,
     HfArgumentParser,
     AutoConfig,
-    DataCollatorWithPadding
+    DataCollatorWithPadding,
+    Wav2Vec2FeatureExtractor
 )
 from wav2vec2 import Wav2Vec2ForSequenceClassification
 from dataclasses import dataclass, field
@@ -25,8 +26,13 @@ class DataArguments:
         default=20,
         metadata={"help": ""},
     )
+    sample_rate: int = field(
+        default=16000,
+        metadata={"help": ""},
+    )
+
     dataset_script_path: str = field(
-        default="./scripts/cmdc_load_scripts.py",
+        default="scripts/cmdc_load_scripts.py",
         metadata={"help": " "},
     )
     cache_file_path: str = field(
@@ -38,7 +44,7 @@ class DataArguments:
 @dataclass
 class ModelArguments:
     model_path: str = field(
-        default="models/chinese-hubert-large",
+        default="models/chinese-hubert-base",
         metadata={"help": " "},
     )
 
@@ -46,25 +52,33 @@ class ModelArguments:
 def main():
     parser = HfArgumentParser((DataArguments, ModelArguments))
     data_args, model_args = parser.parse_args_into_dataclasses()
+
+    output_dir = data_args.dataset_script_path.split('/')[-1].replace('.py', '') + '/' + \
+                 model_args.model_path.split('/')[-1]
     train_arguments = TrainingArguments(
-        output_dir='./checkpoints/LoRA/chinese-hubert-large/cmdc',
+        output_dir='./checkpoints/LoRA/' + output_dir,
         do_train=True,
         do_eval=True,
         fp16=True,
         # gradient_accumulation_steps=8,
         logging_steps=10,
-        per_device_train_batch_size=2,
+        per_device_train_batch_size=8,
         num_train_epochs=500,
         evaluation_strategy='steps',
         eval_steps=100,
-        learning_rate=2e-4,
-        metric_for_best_model="roc_auc"
+        learning_rate=5e-4,
+        metric_for_best_model="roc_auc",
+        save_steps=5000,
     )
 
     feature_extractor = AutoFeatureExtractor.from_pretrained(model_args.model_path)
 
     # model
-    model = Wav2Vec2ForSequenceClassification.from_pretrained(model_args.model_path, ignore_mismatched_sizes=True)
+    model = Wav2Vec2ForSequenceClassification.from_pretrained(
+        model_args.model_path,
+        ignore_mismatched_sizes=True,
+        cache_dir='./cache/models',
+    )
     lora_config = LoraConfig(
         task_type=TaskType.SEQ_CLS,
         target_modules=['q_proj', 'v_proj'],
@@ -74,17 +88,20 @@ def main():
     model.print_trainable_parameters()
 
     # data
-    dataset = load_dataset(data_args.dataset_script_path, trust_remote_code=True)
+    dataset = load_dataset(
+        data_args.dataset_script_path,
+        trust_remote_code=True,
+        cache_dir='./cache'
+    )
+    # print(dataset)
 
     model_input_name = feature_extractor.model_input_names[0]
-
-    # print(model)
 
     def train_transforms(batch):
         subsampled_wavs = []
         for audio in batch['audio']:
             wav = random_subsample(
-                audio['array'], max_length=data_args.max_length_seconds, sample_rate=16000
+                audio['array'], max_length=data_args.max_length_seconds, sample_rate=data_args.sample_rate
             )
             subsampled_wavs.append(wav)
         inputs = feature_extractor(
@@ -145,6 +162,6 @@ def main():
 
 
 if __name__ == '__main__':
-    os.environ['HTTP_PROXY'] = '127.0.0.1:10809'
-    os.environ['HTTPS_PROXY'] = '127.0.0.1:10809'
+    # os.environ['HTTP_PROXY'] = 'http://127.0.0.1:10809'
+    # os.environ['HTTPS_PROXY'] = 'https://127.0.0.1:10809'
     main()

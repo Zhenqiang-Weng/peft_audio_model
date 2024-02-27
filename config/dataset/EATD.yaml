@@ -1,7 +1,6 @@
-
-
-root: './data/EATD-Corpus'
+root: './data/EATD'
 cache: './cache'
 
 
 fold_i: 1
+
