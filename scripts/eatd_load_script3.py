@@ -89,12 +89,12 @@ class EATDDataset(datasets.GeneratorBasedBuilder):
             for d_id in datas:
                 path_2 = os.path.join(path_1, prefix + str(d_id).rjust(3, '0'))
                 file_list = os.listdir(path_2)
-                file_list = list(filter(lambda x: x.endswith('out.wav'), file_list))
+                file_list = list(filter(lambda x: x.endswith('out.wav') or x.endswith('split.wav'), file_list))
                 for suffix_id, w_name in enumerate(file_list):
                     path_3 = os.path.join(path_2, w_name)
                     # print(path_3)
                     sid = f"{prefix}_{d_id}_{w_name.replace('.wav', '')}"
-                    uid = i * 10000 + d_id * 10 + suffix_id
+                    uid = i * 100000 + d_id * 100 + suffix_id
                     with open(path_3, 'rb') as f:
                         yield sid, {
                             "uid": uid,

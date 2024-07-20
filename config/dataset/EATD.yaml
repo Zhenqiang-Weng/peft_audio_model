@@ -1,6 +1,6 @@
-root: './data/EATD'
+root: './data/EATD5'
 cache: './cache'
 
 
-fold_i: 1
+fold_i: 0
 

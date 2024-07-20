@@ -1,9 +1,11 @@
 import os
+import re
+import numpy as np
 import yaml
+import glob
 import datasets
 from datasets import DownloadManager
 from datasets.tasks import AudioClassification
-from sklearn.model_selection import KFold
 
 
 class EATDDataset(datasets.GeneratorBasedBuilder):
@@ -32,7 +34,6 @@ class EATDDataset(datasets.GeneratorBasedBuilder):
         )
 
     def _split_generators(self, dl_manager: DownloadManager):
-
         return [
             datasets.SplitGenerator(
                 name=datasets.Split.TRAIN,
@@ -57,50 +58,28 @@ class EATDDataset(datasets.GeneratorBasedBuilder):
             config = yaml.load(f.read(), Loader=yaml.FullLoader)
         fold = config['fold_i']
         root = config['root']
-        kf = KFold(n_splits=3)
-        ulist = os.listdir(os.path.join(root, 'HC'))
-        dlist = os.listdir(os.path.join(root, 'MDD'))
+        files = glob.glob(os.path.join(root, str(fold), split, '*.wav'))
+        pattern = re.compile(r'[_\\]')
 
-        trainU = []
-        trainD = []
-        testU = []
-        testD = []
+        for id, i in enumerate(files):
+            parts = pattern.split(i)
+            # print(parts)
+            if split == 'train':
+                label = int(parts[-2])
+                uid = int(parts[-4])
+                suffix = int(parts[-1].replace('.wav', ''))
+            else:
+                label = int(parts[-1].replace('.wav', ''))
+                uid = int(parts[-3])
+                suffix = 0
 
-        for t, v in kf.split(ulist):
-            trainU.append(t)
-            testU.append(v)
-
-        for t, v in kf.split(dlist):
-            trainD.append(t)
-            testD.append(v)
-
-        if split == 'train':
-            dataset1 = trainD[fold]
-            dataset2 = trainU[fold]
-        else:
-            dataset1 = testD[fold]
-            dataset2 = testU[fold]
-
-        dataset = [dataset2, dataset1]
-        prefixes = ['HC', 'MDD']
-        for i, prefix in enumerate(prefixes):
-            path_1 = os.path.join(root, prefix)
-            datas = dataset[i]
-            for d_id in datas:
-                path_2 = os.path.join(path_1, prefix + str(d_id).rjust(3, '0'))
-                file_list = os.listdir(path_2)
-                file_list = list(filter(lambda x: x.endswith('out.wav'), file_list))
-                for suffix_id, w_name in enumerate(file_list):
-                    path_3 = os.path.join(path_2, w_name)
-                    # print(path_3)
-                    sid = f"{prefix}_{d_id}_{w_name.replace('.wav', '')}"
-                    uid = i * 10000 + d_id * 10 + suffix_id
-                    with open(path_3, 'rb') as f:
-                        yield sid, {
-                            "uid": uid,
-                            "audio": {
-                                'bytes': f.read(),
-                                'path': path_3,
-                            },
-                            "label": i
-                        }
+            uuid = label * 100000 + uid * 100 + suffix
+            with open(i, 'rb') as f:
+                yield id, {
+                    "uid": uuid,
+                    "audio": {
+                        'bytes': f.read(),
+                        'path': i,
+                    },
+                    "label": label
+                }

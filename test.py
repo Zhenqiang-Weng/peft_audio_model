@@ -35,7 +35,7 @@ class DataArguments:
 @dataclass
 class ModelArguments:
     model_path: str = field(
-        default="./models/mms-lid-126",
+        default="models/chinese-wav2vec2-base",
         metadata={"help": " "},
     )
 
@@ -63,6 +63,18 @@ def main():
     feature_extractor = AutoFeatureExtractor.from_pretrained(model_args.model_path)
     model = Wav2Vec2ForSequenceClassification.from_pretrained(model_args.model_path, ignore_mismatched_sizes=True)
     dataset = load_dataset(data_args.dataset_script_path)
+
+    print(model)
+
+    # full ft
+    total_params = 0
+    for name, parameters in model.named_parameters():
+        total_params += parameters.numel()
+
+    print(
+        f"total parameters:{total_params}"
+    )
+
 
     model_input_name = feature_extractor.model_input_names[0]
 

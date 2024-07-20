@@ -1,4 +1,4 @@
 
-root: './data/EDAIC2'
+root: 'data/WOZ_DAIC'
 audio_file: 'dataCropped'
 cache: './cache'

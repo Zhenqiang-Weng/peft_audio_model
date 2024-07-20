@@ -1,5 +1,8 @@
 import os
+import re
+import numpy as np
 import yaml
+import glob
 import datasets
 from datasets import DownloadManager
 from datasets.tasks import AudioClassification
@@ -58,8 +61,9 @@ class EATDDataset(datasets.GeneratorBasedBuilder):
         fold = config['fold_i']
         root = config['root']
         kf = KFold(n_splits=3)
-        ulist = os.listdir(os.path.join(root, 'HC'))
-        dlist = os.listdir(os.path.join(root, 'MDD'))
+
+        ulist = glob.glob(os.path.join(root, 'HC', '*.wav'))
+        dlist = glob.glob(os.path.join(root, 'MDD', '*.wav'))
 
         trainU = []
         trainD = []
@@ -75,32 +79,19 @@ class EATDDataset(datasets.GeneratorBasedBuilder):
             testD.append(v)
 
         if split == 'train':
-            dataset1 = trainD[fold]
-            dataset2 = trainU[fold]
+            dataset1 = np.array(dlist)[trainD[fold]]
+            dataset2 = np.array(ulist)[trainU[fold]]
         else:
-            dataset1 = testD[fold]
-            dataset2 = testU[fold]
+            dataset1 = np.array(dlist)[testD[fold]]
+            dataset2 = np.array(ulist)[testU[fold]]
 
-        dataset = [dataset2, dataset1]
-        prefixes = ['HC', 'MDD']
-        for i, prefix in enumerate(prefixes):
-            path_1 = os.path.join(root, prefix)
-            datas = dataset[i]
-            for d_id in datas:
-                path_2 = os.path.join(path_1, prefix + str(d_id).rjust(3, '0'))
-                file_list = os.listdir(path_2)
-                file_list = list(filter(lambda x: x.endswith('out.wav'), file_list))
-                for suffix_id, w_name in enumerate(file_list):
-                    path_3 = os.path.join(path_2, w_name)
-                    # print(path_3)
-                    sid = f"{prefix}_{d_id}_{w_name.replace('.wav', '')}"
-                    uid = i * 10000 + d_id * 10 + suffix_id
-                    with open(path_3, 'rb') as f:
-                        yield sid, {
-                            "uid": uid,
-                            "audio": {
-                                'bytes': f.read(),
-                                'path': path_3,
-                            },
-                            "label": i
-                        }
+        dataset = np.concatenate([dataset2, dataset1])
+
+        pattern = re.compile(r'[_\\]')
+
+        for id, file in enumerate(dataset):
+
+            parts = pattern.split(str(file))
+            i = parts[2]
+            label = int(parts[4])
+

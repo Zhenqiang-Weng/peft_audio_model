@@ -19,7 +19,10 @@ from transformers import (
     AutoConfig,
     DataCollatorWithPadding
 )
+
 from wav2vec2 import Wav2Vec2ForSequenceClassification
+from wavlm import WavLMForSequenceClassification, WavLMModel
+
 from dataclasses import dataclass, field
 
 
@@ -30,7 +33,7 @@ class DataArguments:
         metadata={"help": ""},
     )
     dataset_script_path: str = field(
-        default="./scripts/cmdc_load_scripts.py",
+        default="scripts/daic_load_scripts.py",
         metadata={"help": " "},
     )
     cache_file_path: str = field(
@@ -42,7 +45,11 @@ class DataArguments:
 @dataclass
 class ModelArguments:
     model_path: str = field(
-        default="models/chinese-hubert-base",
+        default="models/wavlm-base",
+        metadata={"help": " "},
+    )
+    resume_from_checkpoint: str = field(
+        default=False,
         metadata={"help": " "},
     )
 
@@ -56,26 +63,42 @@ def main():
 
     train_arguments = TrainingArguments(
         output_dir='./checkpoints/Adapter/' + output_dir,
+        overwrite_output_dir=True,
         do_train=True,
         do_eval=True,
-        fp16=True,
+        fp16=False,
         # gradient_accumulation_steps=8,
+        label_smoothing_factor=0.1,
+        learning_rate=1e-4,
+        per_device_train_batch_size=4,
+
         logging_steps=10,
-        per_device_train_batch_size=8,
         num_train_epochs=500,
         evaluation_strategy='steps',
-        eval_steps=100,
-        learning_rate=2e-4,
-        metric_for_best_model="roc_auc"
+        eval_steps=70,
+        metric_for_best_model="roc_auc",
+        save_steps=50000,
+        push_to_hub=False,
+        remove_unused_columns=False,
     )
 
     feature_extractor = AutoFeatureExtractor.from_pretrained(model_args.model_path)
 
     # model
-    model = Wav2Vec2ForSequenceClassification.from_pretrained(
-        model_args.model_path,
-        ignore_mismatched_sizes=True,
-    )
+    if 'hubert' in model_args.model_path or 'wav2vec' in model_args.model_path:
+        model = Wav2Vec2ForSequenceClassification.from_pretrained(
+            model_args.model_path,
+            ignore_mismatched_sizes=True,
+            cache_dir='./cache/models',
+        )
+    elif 'wavlm' in model_args.model_path:
+        model = WavLMForSequenceClassification.from_pretrained(
+            model_args.model_path,
+            ignore_mismatched_sizes=True,
+            cache_dir='./cache/models',
+        )
+
+
 
     print(model)
 
@@ -84,12 +107,12 @@ def main():
     trainable_params = 0
     for name, parameters in model.named_parameters():
         total_params += parameters.numel()
-        if 'adapter' not in name:
-            parameters.requires_grad = False
-        else:
+        if 'adapter' in name or 'classifier' in name:
             trainable_params += parameters.numel()
+        else:
+            parameters.requires_grad = False
     print(
-        f"total parameters:{total_params},trainable parameters:{trainable_params},r%:{trainable_params / total_params * 100}"
+        f"total parameters:{total_params},trainable parameters:{trainable_params},r:{trainable_params / total_params}"
     )
 
     # data
@@ -134,18 +157,22 @@ def main():
         output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['label'])}
         return output_batch
 
+    remove_columns = dataset['train'].column_names
+    if 'uid' in remove_columns:
+        remove_columns.remove('uid')
+
     if train_arguments.do_train:
         train_dataset = dataset['train'].map(
             train_transforms,
             batched=True,
-            remove_columns=dataset['train'].column_names,
+            remove_columns=remove_columns,
         )
 
     if train_arguments.do_eval:
         test_dataset = dataset['test'].map(
             test_transforms,
             batched=True,
-            remove_columns=dataset['test'].column_names,
+            remove_columns=remove_columns,
         )
 
     trainer = Trainer(
@@ -158,8 +185,9 @@ def main():
 
     )
 
-    trainer.train()
-
+    trainer.train(
+        resume_from_checkpoint=model_args.resume_from_checkpoint,
+    )
 
 if __name__ == '__main__':
     os.environ['HTTP_PROXY'] = '127.0.0.1:10809'

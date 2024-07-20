@@ -1,10 +1,5 @@
-import os
-
-import torch
-import transformers
-import datasets
 import yaml
-from peft import TaskType, LoraConfig, get_peft_model
+from peft import TaskType, IA3Config, get_peft_model
 from datasets import load_dataset
 from utils import *
 
@@ -13,11 +8,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
     HfArgumentParser,
-    AutoConfig,
-    DataCollatorWithPadding,
-    Wav2Vec2FeatureExtractor
 )
-
 from wav2vec2 import Wav2Vec2ForSequenceClassification, Wav2Vec2Model
 from wavlm import WavLMForSequenceClassification, WavLMModel
 
@@ -36,7 +27,7 @@ class DataArguments:
     )
 
     dataset_script_path: str = field(
-        default="scripts/daic_load_scripts.py",
+        default="scripts/cmdc_load_scripts.py",
         metadata={"help": " "},
     )
     cache_file_path: str = field(
@@ -59,17 +50,21 @@ class ModelArguments:
 
 def main():
     parser = HfArgumentParser((DataArguments, ModelArguments))
+
     data_args, model_args = parser.parse_args_into_dataclasses()
 
     output_dir = data_args.dataset_script_path.split('/')[-1].replace('.py', '') + '/' + \
                  model_args.model_path.split('/')[-1]
+
     dataInformationPath = data_args.dataset_script_path.split('/')[-1].split('_')[0].upper() + '.yaml'
+
     with open('config/dataset/' + dataInformationPath) as f:
         information = yaml.load(f.read(), Loader=yaml.FullLoader)
+
     output_dir += ('/' + str(information['fold_i'])) if 'fold_i' in information.keys() else ''
 
     train_arguments = TrainingArguments(
-        output_dir='./checkpoints/LoRA/' + output_dir,
+        output_dir='./checkpoints/IA3/' + output_dir,
         overwrite_output_dir=True,
         do_train=True,
         do_eval=True,
@@ -84,7 +79,7 @@ def main():
         evaluation_strategy='steps',
         eval_steps=100,
         metric_for_best_model="roc_auc",
-        save_steps=5000,
+        save_steps=50000,
         push_to_hub=False,
         remove_unused_columns=False,
     )
@@ -105,15 +100,24 @@ def main():
             cache_dir='./cache/models',
         )
 
-
-    lora_config = LoraConfig(
-        task_type=TaskType.SEQ_CLS,
-        target_modules=['q_proj', 'v_proj'],
+    IA3_config = IA3Config(
+        task_type=TaskType.CAUSAL_LM,
+        target_modules=['attention.k_proj','attention.v_proj', 'feed_forward.output_dense'],
+        feedforward_modules=['feed_forward.output_dense']
     )
-    model = get_peft_model(model, lora_config)
+
+    print(IA3_config)
+    # lora_config = LoraConfig(
+    #     task_type=TaskType.SEQ_CLS,
+    #     target_modules=['q_proj', 'v_proj'],
+    # )
+
     print(model)
+
+    model = get_peft_model(model, IA3_config)
+
+    # print(model)
     model.print_trainable_parameters()
-    # model.unfreeze_classifier_tail()
 
     # data
     dataset = load_dataset(

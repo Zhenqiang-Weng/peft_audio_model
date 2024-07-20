@@ -9,6 +9,7 @@ class CMDCDATASET(datasets.GeneratorBasedBuilder):
         return datasets.DatasetInfo(
             description="CMDC DataSet",
             features=datasets.Features({
+                "uid": datasets.Value('int64'),
                 "audio": datasets.Audio(sampling_rate=16_000, mono=True),
                 "label": datasets.ClassLabel(num_classes=2, names=['nd', 'd']),
             }),
@@ -41,21 +42,23 @@ class CMDCDATASET(datasets.GeneratorBasedBuilder):
         base = 0 if split == 'train' else 2
         root = mes['root']
         fold = mes['fold_i']
-        prefixes = ['MDD', 'HC']
+        prefixes = ['HC', 'MDD']
         files = mes["Folders"][fold]
         for i, prefix in enumerate(prefixes):
             path_1 = os.path.join(root, prefix)
-            datas = files[base + i]
+            datas = files[base + (1 - i)]
             for d_id in datas:
                 path_2 = os.path.join(path_1, prefix + str(d_id).rjust(2, '0'))
                 file_list = os.listdir(path_2)
                 file_list = list(filter(lambda x: x.endswith('.wav'), file_list))
-                for w_name in file_list:
+                for suffix_id, w_name in enumerate(file_list):
                     path_3 = os.path.join(path_2, w_name)
                     # print(path_3)
+                    uid = i * 100000 + d_id * 100 + suffix_id
                     sid = f"{prefix}_{d_id}_{w_name.replace('.wav', '')}"
                     with open(path_3, 'rb') as f:
                         yield sid, {
+                            "uid": uid,
                             "audio": {
                                 'bytes': f.read(),
                                 'path': path_3,

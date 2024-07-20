@@ -13,21 +13,17 @@ from transformers import (
     Trainer,
     TrainingArguments,
     HfArgumentParser,
-    AutoConfig,
-    DataCollatorWithPadding,
-    Wav2Vec2FeatureExtractor
 )
 
-from wav2vec2 import Wav2Vec2ForSequenceClassification, Wav2Vec2Model
-from wavlm import WavLMForSequenceClassification, WavLMModel
-
 from dataclasses import dataclass, field
+
+from whisper import WhisperForAudioClassification
 
 
 @dataclass
 class DataArguments:
     max_length_seconds: float = field(
-        default=10,
+        default=30,
         metadata={"help": ""},
     )
     sample_rate: int = field(
@@ -48,7 +44,7 @@ class DataArguments:
 @dataclass
 class ModelArguments:
     model_path: str = field(
-        default="models/wavlm-base",
+        default="models/whisper-tiny",
         metadata={"help": " "},
     )
     resume_from_checkpoint: str = field(
@@ -84,7 +80,7 @@ def main():
         evaluation_strategy='steps',
         eval_steps=100,
         metric_for_best_model="roc_auc",
-        save_steps=5000,
+        save_steps=50000,
         push_to_hub=False,
         remove_unused_columns=False,
     )
@@ -92,18 +88,11 @@ def main():
     feature_extractor = AutoFeatureExtractor.from_pretrained(model_args.model_path)
 
     # model
-    if 'hubert' in model_args.model_path or 'wav2vec' in model_args.model_path:
-        model = Wav2Vec2ForSequenceClassification.from_pretrained(
-            model_args.model_path,
-            ignore_mismatched_sizes=True,
-            cache_dir='./cache/models',
-        )
-    elif 'wavlm' in model_args.model_path:
-        model = WavLMForSequenceClassification.from_pretrained(
-            model_args.model_path,
-            ignore_mismatched_sizes=True,
-            cache_dir='./cache/models',
-        )
+    model = WhisperForAudioClassification.from_pretrained(
+        model_args.model_path,
+        ignore_mismatched_sizes=True,
+        cache_dir='./cache/models',
+    )
 
 
     lora_config = LoraConfig(
@@ -111,9 +100,13 @@ def main():
         target_modules=['q_proj', 'v_proj'],
     )
     model = get_peft_model(model, lora_config)
+
+    for name, parameters in model.named_parameters():
+        if 'classifier' in name:
+            parameters.requires_grad = True
+
     print(model)
     model.print_trainable_parameters()
-    # model.unfreeze_classifier_tail()
 
     # data
     dataset = load_dataset(
