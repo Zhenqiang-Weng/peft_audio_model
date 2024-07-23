@@ -56,7 +56,7 @@ class DataArguments:
     )
 
     dataset_script_path: str = field(
-        default="scripts/eatd_load_script5.py",
+        default="scripts/daic_load_script2.py",
         metadata={"help": " "},
     )
 
@@ -84,7 +84,7 @@ class DataArguments:
 @dataclass
 class ModelArguments:
     model_path: str = field(
-        default="models/wavlm-base",
+        default="models/chinese-wav2vec2-base",
         metadata={"help": " "},
     )
     resume_from_checkpoint: str = field(
@@ -96,6 +96,7 @@ class ModelArguments:
 @dataclass
 class StrategyParameters:
     target_modules = ['q_proj', 'v_proj'],
+    # target_modules = ['attention.q_proj', 'attention.v_proj', 'feed_forward.output_dense'],
     # feedforward_modules = ['feed_forward.output_dense']
 
 
@@ -266,7 +267,9 @@ def main():
             cache_dir='./cache/models',
         )
 
-    print(model)
+    for name, para in model.named_parameters():
+        print(name)
+
 
     # PEFT config
     if strategy_args.strategy.value == "bitfit":
@@ -287,8 +290,8 @@ def main():
         if strategy_args.strategy.value == "ia3":
             peft_config = IA3Config(
                 task_type=TaskType.SEQ_CLS,
-                target_modules=strategy_args.strategy_parameters.target_modules,
-                feedforward_modules=strategy_args.strategy_parameters.TaskType.feedforward_modules,
+                target_modules=strategy_args.strategy_parameters.target_modules[0],
+                feedforward_modules=strategy_args.strategy_parameters.feedforward_modules[0],
             )
         elif strategy_args.strategy.value == "lora":
             peft_config = LoraConfig(
@@ -301,6 +304,18 @@ def main():
 
     elif strategy_args.strategy.value == "adapter":
         print("set add_adapter=True in the configuration")
+        # adapter ft
+        total_params = 0
+        trainable_params = 0
+        for name, parameters in model.named_parameters():
+            total_params += parameters.numel()
+            if 'adapter' in name or 'classifier' in name:
+                trainable_params += parameters.numel()
+            else:
+                parameters.requires_grad = False
+        print(
+            f"total parameters:{total_params},trainable parameters:{trainable_params},r:{trainable_params / total_params}"
+        )
         print(model)
 
     # data

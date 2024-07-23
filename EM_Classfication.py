@@ -67,11 +67,11 @@ def em_algorithm(data, num_components, num_iters):
 
     return means, covariances, weights
 
+if __name__ == "__main__":
+    # 示例数据：生成一个具有728维特征的数据集
+    data = np.random.randn(100, 2)  # 100个样本，每个样本728维
 
-# 示例数据：生成一个具有728维特征的数据集
-data = np.random.randn(100, 2)  # 100个样本，每个样本728维
-
-# 执行EM算法
-num_components = 2  # 二维分类
-num_iters = 20000
-means, covariances, weights = em_algorithm(data, num_components, num_iters)
+    # 执行EM算法
+    num_components = 2  # 二维分类
+    num_iters = 20000
+    means, covariances, weights = em_algorithm(data, num_components, num_iters)
