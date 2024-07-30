@@ -24,7 +24,8 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from transformers.activations import ACT2FN
-from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask, _prepare_4d_causal_attention_mask_for_sdpa
+from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask, \
+    _prepare_4d_causal_attention_mask_for_sdpa
 from transformers.modeling_outputs import (
     BaseModelOutput,
     BaseModelOutputWithPastAndCrossAttentions,
@@ -45,11 +46,9 @@ from transformers.utils import (
 from .configuration_whisper import WhisperConfig
 from .generation_whisper import WhisperGenerationMixin
 
-
 if is_flash_attn_2_available():
     from flash_attn import flash_attn_func, flash_attn_varlen_func
     from flash_attn.bert_padding import index_first_axis, pad_input, unpad_input  # noqa
-
 
 logger = logging.get_logger(__name__)
 
@@ -57,7 +56,6 @@ _HIDDEN_STATES_START_POSITION = 1
 
 _CONFIG_FOR_DOC = "WhisperConfig"
 _CHECKPOINT_FOR_DOC = "openai/whisper-tiny"
-
 
 WHISPER_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "openai/whisper-base",
@@ -109,11 +107,11 @@ def shift_tokens_right(input_ids: torch.Tensor, pad_token_id: int, decoder_start
 
 # Copied from transformers.models.wav2vec2.modeling_wav2vec2._compute_mask_indices
 def _compute_mask_indices(
-    shape: Tuple[int, int],
-    mask_prob: float,
-    mask_length: int,
-    attention_mask: Optional[torch.LongTensor] = None,
-    min_masks: int = 0,
+        shape: Tuple[int, int],
+        mask_prob: float,
+        mask_length: int,
+        attention_mask: Optional[torch.LongTensor] = None,
+        min_masks: int = 0,
 ) -> np.ndarray:
     """
     Computes random mask spans for a given shape. Used to implement [SpecAugment: A Simple Data Augmentation Method for
@@ -233,7 +231,7 @@ class WhisperPositionalEmbedding(nn.Embedding):
 
     def forward(self, input_ids, past_key_values_length=0, position_ids=None):
         if position_ids is None:
-            return self.weight[past_key_values_length : past_key_values_length + input_ids.shape[1]]
+            return self.weight[past_key_values_length: past_key_values_length + input_ids.shape[1]]
         else:
             return self.weight[position_ids]
 
@@ -242,14 +240,14 @@ class WhisperAttention(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
     def __init__(
-        self,
-        embed_dim: int,
-        num_heads: int,
-        dropout: float = 0.0,
-        is_decoder: bool = False,
-        bias: bool = True,
-        is_causal: bool = False,
-        config: Optional[WhisperConfig] = None,
+            self,
+            embed_dim: int,
+            num_heads: int,
+            dropout: float = 0.0,
+            is_decoder: bool = False,
+            bias: bool = True,
+            is_causal: bool = False,
+            config: Optional[WhisperConfig] = None,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -263,7 +261,7 @@ class WhisperAttention(nn.Module):
                 f"embed_dim must be divisible by num_heads (got `embed_dim`: {self.embed_dim}"
                 f" and `num_heads`: {num_heads})."
             )
-        self.scaling = self.head_dim**-0.5
+        self.scaling = self.head_dim ** -0.5
         self.is_decoder = is_decoder
         self.is_causal = is_causal
 
@@ -278,13 +276,13 @@ class WhisperAttention(nn.Module):
 
     # Copied from transformers.models.bart.modeling_bart.BartAttention.forward with BART->whisper
     def forward(
-        self,
-        hidden_states: torch.Tensor,
-        key_value_states: Optional[torch.Tensor] = None,
-        past_key_value: Optional[Tuple[torch.Tensor]] = None,
-        attention_mask: Optional[torch.Tensor] = None,
-        layer_head_mask: Optional[torch.Tensor] = None,
-        output_attentions: bool = False,
+            self,
+            hidden_states: torch.Tensor,
+            key_value_states: Optional[torch.Tensor] = None,
+            past_key_value: Optional[Tuple[torch.Tensor]] = None,
+            attention_mask: Optional[torch.Tensor] = None,
+            layer_head_mask: Optional[torch.Tensor] = None,
+            output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
 
@@ -301,9 +299,9 @@ class WhisperAttention(nn.Module):
         # is checking that the `sequence_length` of the `past_key_value` is the same as
         # the provided `key_value_states` to support prefix tuning
         if (
-            is_cross_attention
-            and past_key_value is not None
-            and past_key_value[0].shape[2] == key_value_states.shape[1]
+                is_cross_attention
+                and past_key_value is not None
+                and past_key_value[0].shape[2] == key_value_states.shape[1]
         ):
             # reuse k,v, cross_attentions
             key_states = past_key_value[0]
@@ -419,13 +417,13 @@ class WhisperFlashAttention2(WhisperAttention):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim)
 
     def forward(
-        self,
-        hidden_states: torch.Tensor,
-        key_value_states: Optional[torch.Tensor] = None,
-        past_key_value: Optional[Tuple[torch.Tensor]] = None,
-        attention_mask: Optional[torch.Tensor] = None,
-        layer_head_mask: Optional[torch.Tensor] = None,
-        output_attentions: bool = False,
+            self,
+            hidden_states: torch.Tensor,
+            key_value_states: Optional[torch.Tensor] = None,
+            past_key_value: Optional[Tuple[torch.Tensor]] = None,
+            attention_mask: Optional[torch.Tensor] = None,
+            layer_head_mask: Optional[torch.Tensor] = None,
+            output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         # WhisperFlashAttention2 attention does not support output_attentions
         if output_attentions:
@@ -444,9 +442,9 @@ class WhisperFlashAttention2(WhisperAttention):
         # is checking that the `sequence_length` of the `past_key_value` is the same as
         # the provided `key_value_states` to support prefix tuning
         if (
-            is_cross_attention
-            and past_key_value is not None
-            and past_key_value[0].shape[2] == key_value_states.shape[1]
+                is_cross_attention
+                and past_key_value is not None
+                and past_key_value[0].shape[2] == key_value_states.shape[1]
         ):
             # reuse k,v, cross_attentions
             key_states = past_key_value[0].transpose(1, 2)
@@ -520,7 +518,7 @@ class WhisperFlashAttention2(WhisperAttention):
 
     # Copied from transformers.models.llama.modeling_llama.LlamaFlashAttention2._flash_attention_forward
     def _flash_attention_forward(
-        self, query_states, key_states, value_states, attention_mask, query_length, dropout=0.0, softmax_scale=None
+            self, query_states, key_states, value_states, attention_mask, query_length, dropout=0.0, softmax_scale=None
     ):
         """
         Calls the forward method of Flash Attention - if the input hidden states contain at least one padding token
@@ -621,13 +619,13 @@ class WhisperFlashAttention2(WhisperAttention):
 class WhisperSdpaAttention(WhisperAttention):
     # Copied from transformers.models.bart.modeling_bart.BartSdpaAttention.forward with BART->whisper, Bart->Whisper
     def forward(
-        self,
-        hidden_states: torch.Tensor,
-        key_value_states: Optional[torch.Tensor] = None,
-        past_key_value: Optional[Tuple[torch.Tensor]] = None,
-        attention_mask: Optional[torch.Tensor] = None,
-        layer_head_mask: Optional[torch.Tensor] = None,
-        output_attentions: bool = False,
+            self,
+            hidden_states: torch.Tensor,
+            key_value_states: Optional[torch.Tensor] = None,
+            past_key_value: Optional[Tuple[torch.Tensor]] = None,
+            attention_mask: Optional[torch.Tensor] = None,
+            layer_head_mask: Optional[torch.Tensor] = None,
+            output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
         if output_attentions or layer_head_mask is not None:
@@ -658,9 +656,9 @@ class WhisperSdpaAttention(WhisperAttention):
         # is checking that the `sequence_length` of the `past_key_value` is the same as
         # the provided `key_value_states` to support prefix tuning
         if (
-            is_cross_attention
-            and past_key_value is not None
-            and past_key_value[0].shape[2] == key_value_states.shape[1]
+                is_cross_attention
+                and past_key_value is not None
+                and past_key_value[0].shape[2] == key_value_states.shape[1]
         ):
             # reuse k,v, cross_attentions
             key_states = past_key_value[0]
@@ -744,16 +742,35 @@ class WhisperEncoderLayer(nn.Module):
         self.dropout = config.dropout
         self.activation_fn = ACT2FN[config.activation_function]
         self.activation_dropout = config.activation_dropout
+
+        self.ff_adapter_layer1 = None
+        self.ff_adapter_layer2 = None
+
+        if config.add_adapter:
+            self.ff_adapter_layer1 = nn.Sequential(
+                nn.Linear(self.embed_dim, config.encoder_ffn_dim),
+                self.activation_fn,
+                nn.Linear(config.encoder_ffn_dim, self.embed_dim),
+                nn.Dropout(config.dropout)
+            )
+
+            self.ff_adapter_layer2 = nn.Sequential(
+                nn.Linear(self.embed_dim, config.encoder_ffn_dim),
+                ACT2FN[config.activation_function],
+                nn.Linear(config.encoder_ffn_dim, self.embed_dim),
+                nn.Dropout(config.dropout)
+            )
+
         self.fc1 = nn.Linear(self.embed_dim, config.encoder_ffn_dim)
         self.fc2 = nn.Linear(config.encoder_ffn_dim, self.embed_dim)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
 
     def forward(
-        self,
-        hidden_states: torch.Tensor,
-        attention_mask: torch.Tensor,
-        layer_head_mask: torch.Tensor,
-        output_attentions: bool = False,
+            self,
+            hidden_states: torch.Tensor,
+            attention_mask: torch.Tensor,
+            layer_head_mask: torch.Tensor,
+            output_attentions: bool = False,
     ) -> torch.Tensor:
         """
         Args:
@@ -775,6 +792,10 @@ class WhisperEncoderLayer(nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+
+        if self.ff_adapter_layer1:
+            hidden_states = self.ff_adapter_layer1(hidden_states)
+
         hidden_states = residual + hidden_states
 
         residual = hidden_states
@@ -783,10 +804,14 @@ class WhisperEncoderLayer(nn.Module):
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+
+        if self.ff_adapter_layer2:
+            hidden_states = self.ff_adapter_layer2(hidden_states)
+
         hidden_states = residual + hidden_states
 
         if hidden_states.dtype == torch.float16 and (
-            torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any()
+                torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any()
         ):
             clamp_value = torch.finfo(hidden_states.dtype).max - 1000
             hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
@@ -831,16 +856,16 @@ class WhisperDecoderLayer(nn.Module):
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
 
     def forward(
-        self,
-        hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        encoder_hidden_states: Optional[torch.Tensor] = None,
-        encoder_attention_mask: Optional[torch.Tensor] = None,
-        layer_head_mask: Optional[torch.Tensor] = None,
-        cross_attn_layer_head_mask: Optional[torch.Tensor] = None,
-        past_key_value: Optional[Tuple[torch.Tensor]] = None,
-        output_attentions: Optional[bool] = False,
-        use_cache: Optional[bool] = True,
+            self,
+            hidden_states: torch.Tensor,
+            attention_mask: Optional[torch.Tensor] = None,
+            encoder_hidden_states: Optional[torch.Tensor] = None,
+            encoder_attention_mask: Optional[torch.Tensor] = None,
+            layer_head_mask: Optional[torch.Tensor] = None,
+            cross_attn_layer_head_mask: Optional[torch.Tensor] = None,
+            past_key_value: Optional[Tuple[torch.Tensor]] = None,
+            output_attentions: Optional[bool] = False,
+            use_cache: Optional[bool] = True,
     ) -> torch.Tensor:
         """
         Args:
@@ -1127,14 +1152,14 @@ class WhisperEncoder(WhisperPreTrainedModel):
         self.conv1 = value
 
     def forward(
-        self,
-        input_features,
-        attention_mask=None,
-        head_mask=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-        **kwargs,
+            self,
+            input_features,
+            attention_mask=None,
+            head_mask=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
+            **kwargs,
     ):
         r"""
         Args:
@@ -1275,19 +1300,19 @@ class WhisperDecoder(WhisperPreTrainedModel):
         self.embed_tokens = value
 
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        encoder_hidden_states=None,
-        head_mask=None,
-        cross_attn_head_mask=None,
-        past_key_values=None,
-        inputs_embeds=None,
-        position_ids=None,
-        use_cache=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            encoder_hidden_states=None,
+            head_mask=None,
+            cross_attn_head_mask=None,
+            past_key_values=None,
+            inputs_embeds=None,
+            position_ids=None,
+            use_cache=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         r"""
         Args:
@@ -1519,9 +1544,9 @@ class WhisperModel(WhisperPreTrainedModel):
         self.encoder._freeze_parameters()
 
     def _mask_input_features(
-        self,
-        input_features: torch.FloatTensor,
-        attention_mask: Optional[torch.LongTensor] = None,
+            self,
+            input_features: torch.FloatTensor,
+            attention_mask: Optional[torch.LongTensor] = None,
     ):
         """
         Masks extracted features along time axis and/or along feature axis according to
@@ -1564,22 +1589,22 @@ class WhisperModel(WhisperPreTrainedModel):
     @add_start_docstrings_to_model_forward(WHISPER_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqModelOutput, config_class=_CONFIG_FOR_DOC)
     def forward(
-        self,
-        input_features: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        decoder_input_ids: Optional[torch.LongTensor] = None,
-        decoder_attention_mask: Optional[torch.LongTensor] = None,
-        head_mask: Optional[torch.Tensor] = None,
-        decoder_head_mask: Optional[torch.Tensor] = None,
-        cross_attn_head_mask: Optional[torch.Tensor] = None,
-        encoder_outputs: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
-        past_key_values: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
-        decoder_inputs_embeds: Optional[Tuple[torch.FloatTensor]] = None,
-        decoder_position_ids: Optional[Tuple[torch.LongTensor]] = None,
-        use_cache: Optional[bool] = None,
-        output_attentions: Optional[bool] = None,
-        output_hidden_states: Optional[bool] = None,
-        return_dict: Optional[bool] = None,
+            self,
+            input_features: Optional[torch.FloatTensor] = None,
+            attention_mask: Optional[torch.LongTensor] = None,
+            decoder_input_ids: Optional[torch.LongTensor] = None,
+            decoder_attention_mask: Optional[torch.LongTensor] = None,
+            head_mask: Optional[torch.Tensor] = None,
+            decoder_head_mask: Optional[torch.Tensor] = None,
+            cross_attn_head_mask: Optional[torch.Tensor] = None,
+            encoder_outputs: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+            past_key_values: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+            decoder_inputs_embeds: Optional[Tuple[torch.FloatTensor]] = None,
+            decoder_position_ids: Optional[Tuple[torch.LongTensor]] = None,
+            use_cache: Optional[bool] = None,
+            output_attentions: Optional[bool] = None,
+            output_hidden_states: Optional[bool] = None,
+            return_dict: Optional[bool] = None,
     ) -> Union[Tuple[torch.Tensor], Seq2SeqModelOutput]:
         r"""
         Returns:
@@ -1697,23 +1722,23 @@ class WhisperForConditionalGeneration(WhisperGenerationMixin, WhisperPreTrainedM
     @add_start_docstrings_to_model_forward(WHISPER_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqLMOutput, config_class=_CONFIG_FOR_DOC)
     def forward(
-        self,
-        input_features: Optional[torch.FloatTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,
-        decoder_input_ids: Optional[torch.LongTensor] = None,
-        decoder_attention_mask: Optional[torch.LongTensor] = None,
-        head_mask: Optional[torch.Tensor] = None,
-        decoder_head_mask: Optional[torch.Tensor] = None,
-        cross_attn_head_mask: Optional[torch.Tensor] = None,
-        encoder_outputs: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
-        past_key_values: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
-        decoder_inputs_embeds: Optional[Tuple[torch.FloatTensor]] = None,
-        decoder_position_ids: Optional[Tuple[torch.LongTensor]] = None,
-        labels: Optional[torch.LongTensor] = None,
-        use_cache: Optional[bool] = None,
-        output_attentions: Optional[bool] = None,
-        output_hidden_states: Optional[bool] = None,
-        return_dict: Optional[bool] = None,
+            self,
+            input_features: Optional[torch.FloatTensor] = None,
+            attention_mask: Optional[torch.LongTensor] = None,
+            decoder_input_ids: Optional[torch.LongTensor] = None,
+            decoder_attention_mask: Optional[torch.LongTensor] = None,
+            head_mask: Optional[torch.Tensor] = None,
+            decoder_head_mask: Optional[torch.Tensor] = None,
+            cross_attn_head_mask: Optional[torch.Tensor] = None,
+            encoder_outputs: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+            past_key_values: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+            decoder_inputs_embeds: Optional[Tuple[torch.FloatTensor]] = None,
+            decoder_position_ids: Optional[Tuple[torch.LongTensor]] = None,
+            labels: Optional[torch.LongTensor] = None,
+            use_cache: Optional[bool] = None,
+            output_attentions: Optional[bool] = None,
+            output_hidden_states: Optional[bool] = None,
+            return_dict: Optional[bool] = None,
     ) -> Union[Tuple[torch.Tensor], Seq2SeqLMOutput]:
         r"""
         labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
@@ -1795,14 +1820,14 @@ class WhisperForConditionalGeneration(WhisperGenerationMixin, WhisperPreTrainedM
         )
 
     def prepare_inputs_for_generation(
-        self,
-        decoder_input_ids,
-        past_key_values=None,
-        use_cache=None,
-        encoder_outputs=None,
-        attention_mask=None,
-        decoder_attention_mask=None,
-        **kwargs,
+            self,
+            decoder_input_ids,
+            past_key_values=None,
+            use_cache=None,
+            encoder_outputs=None,
+            attention_mask=None,
+            decoder_attention_mask=None,
+            **kwargs,
     ):
         decoder_position_ids = None
         if decoder_attention_mask is not None:
@@ -1903,19 +1928,19 @@ class WhisperForCausalLM(WhisperPreTrainedModel):
 
     @replace_return_docstrings(output_type=CausalLMOutputWithCrossAttentions, config_class=_CONFIG_FOR_DOC)
     def forward(
-        self,
-        input_ids: torch.LongTensor = None,
-        attention_mask: Optional[torch.Tensor] = None,
-        encoder_outputs: Optional[Tuple[torch.FloatTensor]] = None,
-        head_mask: Optional[torch.Tensor] = None,
-        cross_attn_head_mask: Optional[torch.Tensor] = None,
-        past_key_values: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
-        inputs_embeds: Optional[torch.FloatTensor] = None,
-        labels: Optional[torch.LongTensor] = None,
-        use_cache: Optional[bool] = None,
-        output_attentions: Optional[bool] = None,
-        output_hidden_states: Optional[bool] = None,
-        return_dict: Optional[bool] = None,
+            self,
+            input_ids: torch.LongTensor = None,
+            attention_mask: Optional[torch.Tensor] = None,
+            encoder_outputs: Optional[Tuple[torch.FloatTensor]] = None,
+            head_mask: Optional[torch.Tensor] = None,
+            cross_attn_head_mask: Optional[torch.Tensor] = None,
+            past_key_values: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+            inputs_embeds: Optional[torch.FloatTensor] = None,
+            labels: Optional[torch.LongTensor] = None,
+            use_cache: Optional[bool] = None,
+            output_attentions: Optional[bool] = None,
+            output_hidden_states: Optional[bool] = None,
+            return_dict: Optional[bool] = None,
     ) -> Union[Tuple, CausalLMOutputWithCrossAttentions]:
         r"""
         Args:
@@ -2045,13 +2070,13 @@ class WhisperForCausalLM(WhisperPreTrainedModel):
         )
 
     def prepare_inputs_for_generation(
-        self,
-        input_ids,
-        past_key_values=None,
-        use_cache=None,
-        encoder_outputs=None,
-        attention_mask=None,
-        **kwargs,
+            self,
+            input_ids,
+            past_key_values=None,
+            use_cache=None,
+            encoder_outputs=None,
+            attention_mask=None,
+            **kwargs,
     ):
         if past_key_values is not None:
             past_length = past_key_values[0][0].shape[2]
@@ -2082,6 +2107,7 @@ class WhisperForCausalLM(WhisperPreTrainedModel):
             )
         return reordered_past
 
+
 class WhisperAdapterLayer(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -2098,6 +2124,7 @@ class WhisperAdapterLayer(nn.Module):
         hidden_states = nn.functional.glu(hidden_states, dim=1)
 
         return hidden_states
+
 
 class WhisperAdapter(nn.Module):
     def __init__(self, config):
@@ -2147,11 +2174,12 @@ class WhisperForAudioClassification(WhisperPreTrainedModel):
         if config.use_weighted_layer_sum:
             self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
 
-        self.adapter = WhisperAdapter(config) if config.add_adapter else None
+        # self.adapter = WhisperAdapter(config) if config.add_adapter else None
 
-        self.projector = nn.Linear(config.hidden_size, config.classifier_proj_size)
-        self.classifier = nn.Linear(config.classifier_proj_size, config.num_labels)
-
+        self.classifier_projector1 = nn.Linear(config.hidden_size, config.classifier_proj_size)
+        self.classifier_projector2 = nn.Linear(config.classifier_proj_size, config.classifier_proj_size // 2)
+        self.classifier_projector3 = nn.Linear(config.classifier_proj_size // 2, config.classifier_proj_size // 4)
+        self.classifier = nn.Linear(config.classifier_proj_size // 4, config.num_labels)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -2172,17 +2200,17 @@ class WhisperForAudioClassification(WhisperPreTrainedModel):
     @add_start_docstrings_to_model_forward(WHISPER_ENCODER_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=SequenceClassifierOutput, config_class=_CONFIG_FOR_DOC)
     def forward(
-        self,
-        input_features: Optional[torch.LongTensor] = None,
-        head_mask: Optional[torch.Tensor] = None,
-        encoder_outputs: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
-        labels: Optional[torch.LongTensor] = None,
-        output_attentions: Optional[bool] = None,
-        output_hidden_states: Optional[bool] = None,
-        return_dict: Optional[bool] = None,
-        input_values: Optional[torch.Tensor] = None,
-        *args,
-        **kwargs,
+            self,
+            input_features: Optional[torch.LongTensor] = None,
+            head_mask: Optional[torch.Tensor] = None,
+            encoder_outputs: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+            labels: Optional[torch.LongTensor] = None,
+            output_attentions: Optional[bool] = None,
+            output_hidden_states: Optional[bool] = None,
+            return_dict: Optional[bool] = None,
+            input_values: Optional[torch.Tensor] = None,
+            *args,
+            **kwargs,
     ) -> Union[Tuple[torch.Tensor], SequenceClassifierOutput]:
         r"""
         labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
@@ -2250,10 +2278,12 @@ class WhisperForAudioClassification(WhisperPreTrainedModel):
         else:
             hidden_states = encoder_outputs[0]
 
-        if self.adapter is not None:
-            hidden_states = self.adapter(hidden_states)
+        # if self.adapter is not None:
+        #     hidden_states = self.adapter(hidden_states)
 
-        hidden_states = self.projector(hidden_states)
+        hidden_states = self.classifier_projector1(torch.nn.functional.relu(hidden_states))
+        hidden_states = self.classifier_projector2(torch.nn.functional.relu(hidden_states))
+        hidden_states = self.classifier_projector3(torch.nn.functional.relu(hidden_states))
         pooled_output = hidden_states.mean(dim=1)
 
         logits = self.classifier(pooled_output)
@@ -2267,8 +2297,6 @@ class WhisperForAudioClassification(WhisperPreTrainedModel):
             # labels = labels.to(logits.device)
             # loss = loss_fct(logits.view(-1, self.config.num_labels), labels.view(-1))
 
-
-
             # Focal loss
             log_probs = -nn.functional.log_softmax(logits, dim=-1)
 
@@ -2278,8 +2306,8 @@ class WhisperForAudioClassification(WhisperPreTrainedModel):
             nll_loss = log_probs.gather(dim=-1, index=labels.long())
 
             # 添加ratio用以解决样本不均衡的问题
-            probs = nn.functional.softmax(logits, dim=-1)
-            probs = probs.gather(dim=-1, index=labels.long())
+            # probs = nn.functional.softmax(logits, dim=-1)
+            # probs = probs.gather(dim=-1, index=labels.long())
 
             # 简单赋权
             # ratio = torch.where(labels == 1, 0.55, 0.45)
@@ -2287,12 +2315,11 @@ class WhisperForAudioClassification(WhisperPreTrainedModel):
             # weighted
             # alpha = torch.where(labels == 1, 0.55, 0.45)
             # ratio = alpha * torch.pow(ratio, gamma)
-            gamma = 3
-            ratio = torch.ones(size=probs.size()).to(probs.device) - probs
-            ratio = torch.pow(ratio, gamma)
-            nll_loss *= ratio
+            # gamma = 3
+            # ratio = torch.ones(size=probs.size()).to(probs.device) - probs
+            # ratio = torch.pow(ratio, gamma)
+            # nll_loss *= ratio
             loss = nll_loss.sum() / len(nll_loss)
-
 
         if not return_dict:
             output = (logits,) + encoder_outputs[1:]
@@ -2301,6 +2328,7 @@ class WhisperForAudioClassification(WhisperPreTrainedModel):
         return SequenceClassifierOutput(
             loss=loss,
             logits=logits,
-            hidden_states=encoder_outputs.last_hidden_state[..., 0, :] if not self.config.add_adapter else hidden_states[..., 0, :],
+            hidden_states=encoder_outputs.last_hidden_state[..., 0,
+                          :] if not self.config.add_adapter else hidden_states[..., 0, :],
             attentions=encoder_outputs.attentions,
         )

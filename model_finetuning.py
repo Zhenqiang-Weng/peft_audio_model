@@ -24,6 +24,8 @@ from transformers import (
     AutoConfig,
     DataCollatorWithPadding
 )
+
+
 from wav2vec2 import Wav2Vec2ForSequenceClassification, Wav2Vec2FeatureExtractor
 from hubert import HubertForSequenceClassification, HubertModel
 from wavlm import WavLMForSequenceClassification, WavLMModel
@@ -46,7 +48,7 @@ from enum import Enum
 @dataclass
 class DataArguments:
     max_length_seconds: float = field(
-        default=5,
+        default=10,
         metadata={"help": ""},
     )
 
@@ -56,7 +58,7 @@ class DataArguments:
     )
 
     dataset_script_path: str = field(
-        default="scripts/daic_load_script2.py",
+        default="scripts/cmdc_load_scripts.py",
         metadata={"help": " "},
     )
 
@@ -76,7 +78,7 @@ class DataArguments:
     )
 
     cache_file_path: str = field(
-        default="./cache",
+        default="F:/cache/audio_pretained_model",
         metadata={"help": " "},
     )
 
@@ -84,7 +86,7 @@ class DataArguments:
 @dataclass
 class ModelArguments:
     model_path: str = field(
-        default="models/chinese-wav2vec2-base",
+        default="models/chinese-hubert-base",
         metadata={"help": " "},
     )
     resume_from_checkpoint: str = field(
@@ -96,14 +98,14 @@ class ModelArguments:
 @dataclass
 class StrategyParameters:
     target_modules = ['q_proj', 'v_proj'],
-    # target_modules = ['attention.q_proj', 'attention.v_proj', 'feed_forward.output_dense'],
-    # feedforward_modules = ['feed_forward.output_dense']
+    # target_modules = ['self_attn.q_proj', 'self_attn.v_proj', 'fc2'],
+    # feedforward_modules = ['fc2']
 
 
 @dataclass
 class StrategyArguments:
     strategy: StrategyType = field(
-        default=StrategyType.LORA,
+        default=StrategyType.ADAPTER,
         metadata={"help": "Fine-tuning methods"},
     )
     strategy_parameters: StrategyParameters = field(
@@ -197,7 +199,7 @@ def main():
     )
     data_args, model_args, hyperparameter_args, strategy_args, record_args = parser.parse_args_into_dataclasses()
 
-    output_dir = './checkpoints/' + strategy_args.strategy.value + '/'
+    output_dir = 'F:/cache/audio_pretained_model/checkpoints/' + strategy_args.strategy.value + '/'
 
     if data_args.robustness_verification:
         output_dir += "robustness_verification/" + \
@@ -237,6 +239,8 @@ def main():
         # label_smoothing_factor=hyperparameter_args.label_smoothing_factor,
         learning_rate=hyperparameter_args.learning_rate,
         per_device_train_batch_size=hyperparameter_args.per_device_train_batch_size,
+
+        load_best_model_at_end=True,
     )
 
     feature_extractor = AutoFeatureExtractor.from_pretrained(model_args.model_path)
@@ -267,9 +271,9 @@ def main():
             cache_dir='./cache/models',
         )
 
+
     for name, para in model.named_parameters():
         print(name)
-
 
     # PEFT config
     if strategy_args.strategy.value == "bitfit":
@@ -318,6 +322,13 @@ def main():
         )
         print(model)
 
+    for name, parameters in model.named_parameters():
+        if 'classifier' in name or 'layer_norm' in name:
+            parameters.requires_grad = True
+
+    for name, para in model.named_parameters():
+        print(name,para.requires_grad)
+
     # data
     train_dataset = None
     test_dataset = None
@@ -326,19 +337,19 @@ def main():
             train_dataset = load_dataset(
                 data_args.dataset_script_path_for_train,
                 trust_remote_code=True,
-                cache_dir='./cache'
+                cache_dir='F:/cache/audio_pretained_model/cache'
             ).shuffle()['train']
         if record_args.do_eval:
             test_dataset = load_dataset(
                 data_args.dataset_script_path_for_test,
                 trust_remote_code=True,
-                cache_dir='./cache'
+                cache_dir='F:/cache/audio_pretained_model/cache'
             ).shuffle()['test']
     else:
         dataset = load_dataset(
             data_args.dataset_script_path,
             trust_remote_code=True,
-            cache_dir='./cache'
+            cache_dir='F:/cache/audio_pretained_model/cache'
         ).shuffle()
         if record_args.do_train:
             train_dataset = dataset['train']
@@ -427,4 +438,5 @@ if __name__ == '__main__':
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
     # init_seed(0)
+
     main()

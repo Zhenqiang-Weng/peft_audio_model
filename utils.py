@@ -154,7 +154,7 @@ def find_optimal_threshold(dir, step):
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.title(
-        f'step-{step} acc-{round(accuracy, 3)} pre-{round(precision, 3)} rec-{round(recall, 3)} f1-{round(f1, 3)} auroc-{round(roc_auc, 3)}'
+        f'step-{step} acc-{round(accuracy, 3)} pre-{round(precision, 3)} rec-{round(recall, 3)} f1-{round(f1, 4)} auroc-{round(roc_auc, 4)}'
     )
     plt.legend(loc="lower right")
     plt.show()

@@ -32,7 +32,7 @@ class EATDATASET(datasets.GeneratorBasedBuilder):
         test_generator = datasets.SplitGenerator(
             name=datasets.Split.TEST,
             gen_kwargs={
-                'split': 'test',
+                'split': 'dev',
                 'config_path': './config/dataset/DAIC2.yaml',
             }
         )

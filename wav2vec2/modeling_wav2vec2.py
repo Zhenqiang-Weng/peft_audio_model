@@ -687,7 +687,7 @@ class Wav2VecEncoderAdapterLayer(nn.Module):
 
 
 class Wav2Vec2EncoderLayer(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, index):
         super().__init__()
         self.attention = Wav2Vec2Attention(
             embed_dim=config.hidden_size,
@@ -700,8 +700,10 @@ class Wav2Vec2EncoderLayer(nn.Module):
         self.feed_forward = Wav2Vec2FeedForward(config)
         self.final_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
-        # self.adapter1 = Wav2VecEncoderAdapterLayer(config) if config.add_adapter else None
-        # self.adapter2 = Wav2VecEncoderAdapterLayer(config) if config.add_adapter else None
+        self.adapter1 = Wav2VecEncoderAdapterLayer(
+            config) if config.add_adapter and index == config.adapter_layer else None
+        self.adapter2 = Wav2VecEncoderAdapterLayer(
+            config) if config.add_adapter and index == config.adapter_layer else None
 
     def forward(self, hidden_states, attention_mask=None, output_attentions=False):
         attn_residual = hidden_states
@@ -710,15 +712,15 @@ class Wav2Vec2EncoderLayer(nn.Module):
         )
         hidden_states = self.dropout(hidden_states)
 
-        # if self.adapter1 is not None:
-        #     hidden_states = self.adapter1(hidden_states)
+        if self.adapter1 is not None:
+            hidden_states = self.adapter1(hidden_states)
 
         hidden_states = attn_residual + hidden_states
 
         hidden_states = self.layer_norm(hidden_states)
 
-        # if self.adapter2 is not None:
-        #     hidden_states = self.adapter2(hidden_states)
+        if self.adapter2 is not None:
+            hidden_states = self.adapter2(hidden_states)
 
         hidden_states = hidden_states + self.feed_forward(hidden_states)
         hidden_states = self.final_layer_norm(hidden_states)
@@ -783,7 +785,7 @@ class Wav2Vec2Encoder(nn.Module):
         self.pos_conv_embed = Wav2Vec2PositionalConvEmbedding(config)
         self.layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout)
-        self.layers = nn.ModuleList([Wav2Vec2EncoderLayer(config) for _ in range(config.num_hidden_layers)])
+        self.layers = nn.ModuleList([Wav2Vec2EncoderLayer(config, index) for index in range(config.num_hidden_layers)])
         self.gradient_checkpointing = False
 
     def forward(
@@ -1482,7 +1484,7 @@ class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
         else:
             self.encoder = Wav2Vec2Encoder(config)
 
-        self.adapter = Wav2Vec2Adapter(config) if config.add_adapter else None
+        # self.adapter = Wav2Vec2Adapter(config) if config.add_adapter else None
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -1599,8 +1601,8 @@ class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
 
         hidden_states = encoder_outputs[0]
 
-        if self.adapter is not None:
-            hidden_states = self.adapter(hidden_states)
+        # if self.adapter is not None:
+        #     hidden_states = self.adapter(hidden_states)
 
         if not return_dict:
             return (hidden_states, extract_features) + encoder_outputs[1:]
@@ -2058,8 +2060,10 @@ class Wav2Vec2ForSequenceClassification(Wav2Vec2PreTrainedModel):
         num_layers = config.num_hidden_layers + 1  # transformer layers + input embeddings
         if config.use_weighted_layer_sum:
             self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
-        self.classifier_projector = nn.Linear(config.hidden_size, config.classifier_proj_size)
-        self.classifier = nn.Linear(config.classifier_proj_size, config.num_labels)
+        self.classifier_projector1 = nn.Linear(config.hidden_size, config.classifier_proj_size)
+        self.classifier_projector2 = nn.Linear(config.classifier_proj_size, config.classifier_proj_size // 2)
+        self.classifier_projector3 = nn.Linear(config.classifier_proj_size // 2, config.classifier_proj_size // 4)
+        self.classifier = nn.Linear(config.classifier_proj_size // 4, config.num_labels)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -2141,7 +2145,10 @@ class Wav2Vec2ForSequenceClassification(Wav2Vec2PreTrainedModel):
         else:
             hidden_states = outputs[0]
 
-        hidden_states = self.classifier_projector(hidden_states)
+        hidden_states = self.classifier_projector1(torch.nn.functional.relu(hidden_states))
+        hidden_states = self.classifier_projector2(torch.nn.functional.relu(hidden_states))
+        hidden_states = self.classifier_projector3(torch.nn.functional.relu(hidden_states))
+
         if attention_mask is None:
             pooled_output = hidden_states.mean(dim=1)
         else:
