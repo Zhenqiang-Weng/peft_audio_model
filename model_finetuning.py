@@ -18,12 +18,13 @@ from peft import (
 
 from transformers import (
     AutoFeatureExtractor,
-    Trainer,
     TrainingArguments,
     HfArgumentParser,
     AutoConfig,
     DataCollatorWithPadding
 )
+
+from trainer import Trainer
 
 from wav2vec2 import Wav2Vec2ForSequenceClassification, Wav2Vec2FeatureExtractor
 from hubert import HubertForSequenceClassification, HubertModel
