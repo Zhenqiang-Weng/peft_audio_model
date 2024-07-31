@@ -25,7 +25,6 @@ from transformers import (
     DataCollatorWithPadding
 )
 
-
 from wav2vec2 import Wav2Vec2ForSequenceClassification, Wav2Vec2FeatureExtractor
 from hubert import HubertForSequenceClassification, HubertModel
 from wavlm import WavLMForSequenceClassification, WavLMModel
@@ -58,7 +57,7 @@ class DataArguments:
     )
 
     dataset_script_path: str = field(
-        default="scripts/cmdc_load_scripts.py",
+        default="scripts/eatd3_load_script.py",
         metadata={"help": " "},
     )
 
@@ -86,7 +85,7 @@ class DataArguments:
 @dataclass
 class ModelArguments:
     model_path: str = field(
-        default="models/chinese-hubert-base",
+        default="models/chinese-wav2vec2-base",
         metadata={"help": " "},
     )
     resume_from_checkpoint: str = field(
@@ -98,14 +97,14 @@ class ModelArguments:
 @dataclass
 class StrategyParameters:
     target_modules = ['q_proj', 'v_proj'],
-    # target_modules = ['self_attn.q_proj', 'self_attn.v_proj', 'fc2'],
-    # feedforward_modules = ['fc2']
+    # target_modules = ['attention.k_proj', 'attention.v_proj', 'feed_forward.output_dense'],
+    # feedforward_modules = ['feed_forward.output_dense']
 
 
 @dataclass
 class StrategyArguments:
     strategy: StrategyType = field(
-        default=StrategyType.ADAPTER,
+        default=StrategyType.LORA,
         metadata={"help": "Fine-tuning methods"},
     )
     strategy_parameters: StrategyParameters = field(
@@ -117,7 +116,7 @@ class StrategyArguments:
         metadata={"help": " "},
     )
     num_train_epochs: int = field(
-        default=500000,
+        default=25,
         metadata={"help": " "},
     )
 
@@ -250,28 +249,28 @@ def main():
         model = Wav2Vec2ForSequenceClassification.from_pretrained(
             model_args.model_path,
             ignore_mismatched_sizes=True,
-            cache_dir='./cache/models',
+            cache_dir='F:/cache/audio_pretained_model/cache/models',
         )
     elif 'wav2vec' in model_args.model_path:
         model = Wav2Vec2ForSequenceClassification.from_pretrained(
             model_args.model_path,
             ignore_mismatched_sizes=True,
-            cache_dir='./cache/models',
+            cache_dir='F:/cache/audio_pretained_model/cache/models',
         )
     elif 'wavlm' in model_args.model_path:
         model = WavLMForSequenceClassification.from_pretrained(
             model_args.model_path,
             ignore_mismatched_sizes=True,
-            cache_dir='./cache/models',
+            cache_dir='F:/cache/audio_pretained_model/cache/models',
         )
     elif 'whisper' in model_args.model_path:
         model = WhisperForAudioClassification.from_pretrained(
             model_args.model_path,
             ignore_mismatched_sizes=True,
-            cache_dir='./cache/models',
+            cache_dir='F:/cache/audio_pretained_model/cache/models',
         )
 
-
+    print(model)
     for name, para in model.named_parameters():
         print(name)
 
@@ -327,7 +326,7 @@ def main():
             parameters.requires_grad = True
 
     for name, para in model.named_parameters():
-        print(name,para.requires_grad)
+        print(name, para.requires_grad)
 
     # data
     train_dataset = None
@@ -371,7 +370,11 @@ def main():
             padding=True,
             return_tensors="pt"
         )
+        # output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['label']),
+        #                 'attention_mask': inputs['attention_mask']}
+        #
         output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['label'])}
+
         return output_batch
 
     def test_transforms(batch):
@@ -390,7 +393,11 @@ def main():
             padding=True,
             return_tensors='pt'
         )
+        # output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['label']),
+        #                 'attention_mask': inputs['attention_mask']}
+        #
         output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['label'])}
+
         return output_batch
 
     remove_columns = train_dataset.column_names if train_dataset else test_dataset.column_names

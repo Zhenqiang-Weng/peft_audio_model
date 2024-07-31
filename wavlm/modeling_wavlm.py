@@ -596,8 +596,28 @@ class WavLMFeedForward(nn.Module):
         return hidden_states
 
 
+class Wav2VecEncoderAdapterLayer(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.down_project = nn.Linear(config.hidden_size, config.adapter_rank)
+
+        if isinstance(config.hidden_act, str):
+            self.intermediate_act_fn = ACT2FN[config.hidden_act]
+        else:
+            self.intermediate_act_fn = config.hidden_act
+
+        self.up_project = nn.Linear(config.adapter_rank, config.hidden_size)
+
+    def forward(self, hidden_states):
+        hidden_states = self.down_project(hidden_states)
+        res = hidden_states
+        hidden_states = self.intermediate_act_fn(hidden_states)
+        hidden_states = self.up_project(hidden_states) + res
+        return hidden_states
+
+
 class WavLMEncoderLayer(nn.Module):
-    def __init__(self, config: WavLMConfig, has_relative_position_bias: bool = True):
+    def __init__(self, config: WavLMConfig, has_relative_position_bias: bool = True, index=None):
         super().__init__()
         self.attention = WavLMAttention(
             embed_dim=config.hidden_size,
@@ -612,6 +632,11 @@ class WavLMEncoderLayer(nn.Module):
         self.feed_forward = WavLMFeedForward(config)
         self.final_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
+        self.adapter1 = Wav2VecEncoderAdapterLayer(
+            config) if config.add_adapter and index == config.adapter_layer else None
+        self.adapter2 = Wav2VecEncoderAdapterLayer(
+            config) if config.add_adapter and index == config.adapter_layer else None
+
     def forward(self, hidden_states, attention_mask=None, position_bias=None, output_attentions=False, index=0):
         attn_residual = hidden_states
         hidden_states, attn_weights, position_bias = self.attention(
@@ -622,11 +647,19 @@ class WavLMEncoderLayer(nn.Module):
             index=index,
         )
         hidden_states = self.dropout(hidden_states)
+
+        if self.adapter1 is not None:
+            hidden_states = self.adapter1(hidden_states)
+
         hidden_states = attn_residual + hidden_states
 
         hidden_states = self.layer_norm(hidden_states)
 
-        hidden_states = hidden_states + self.feed_forward(hidden_states)
+        if self.adapter2 is not None:
+            hidden_states = hidden_states + self.adapter2(self.feed_forward(hidden_states))
+        else:
+            hidden_states = hidden_states + self.feed_forward(hidden_states)
+
         hidden_states = self.final_layer_norm(hidden_states)
 
         outputs = (hidden_states, position_bias)
@@ -682,7 +715,8 @@ class WavLMEncoder(nn.Module):
         self.layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout)
         self.layers = nn.ModuleList(
-            [WavLMEncoderLayer(config, has_relative_position_bias=(i == 0)) for i in range(config.num_hidden_layers)]
+            [WavLMEncoderLayer(config, has_relative_position_bias=(i == 0), index=i) for i in
+             range(config.num_hidden_layers)]
         )
         self.gradient_checkpointing = False
 
@@ -1536,7 +1570,8 @@ class WavLMForSequenceClassification(WavLMPreTrainedModel):
         return SequenceClassifierOutput(
             loss=loss,
             logits=logits,
-            hidden_states=outputs.last_hidden_state[..., 0, :] if not self.config.add_adapter else hidden_states[..., 0, :],
+            hidden_states=outputs.last_hidden_state[..., 0, :] if not self.config.add_adapter else hidden_states[..., 0,
+                                                                                                   :],
             attentions=outputs.attentions,
         )
 

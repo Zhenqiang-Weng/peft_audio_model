@@ -99,7 +99,7 @@ class EvaluateMetrics:
         dataFrame.to_csv(os.path.join(self.save_path, 'best.csv'), sep=',', header=None)
 
 
-def find_best_optimal_threshold(dir, step):
+def find_best_optimal_threshold(dir, step=1):
     # 假设y_true是真实的标签，y_scores是模型预测为正类的概率
     data = np.loadtxt(dir, delimiter=',', dtype='float')
     y_true = (data[:, 0] > 100000).astype(dtype=np.int32)
@@ -184,3 +184,57 @@ class SaveBestModelCallback(TrainerCallback):
     def save_model(self, model):
         model.save_pretrained(self.save_path)
         print(f"Model saved to {self.save_path}")
+
+
+def process_classification_results(file_path) -> pd.DataFrame:
+    # Load the CSV file
+    data = pd.read_csv(file_path)
+
+    # Extract label, identity ID, and suffix using division and modulus
+    data['label'] = data.iloc[:, 0] // 100000
+    data['identity_id'] = (data.iloc[:, 0] // 100) % 1000
+    data['suffix'] = data.iloc[:, 0] % 100
+
+    # Convert the probability columns to numeric
+    data['Category 2'] = data.iloc[:, 2].astype(float)
+
+    # Drop duplicate columns if any
+    data = data.loc[:, ~data.columns.duplicated()]
+
+    # Group by identity ID and label, then compute the average of the second category's probability values
+    grouped_data = data.groupby(['identity_id', 'label'])['Category 2'].mean().reset_index()
+
+    return grouped_data
+
+
+def find_dataframe_optimal_threshold(data, step):
+    # 假设y_true是真实的标签，y_scores是模型预测为正类的概率
+    y_true = data['label'].values
+    y_scores = data['Category 2'].values
+    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+    roc_auc = auc(fpr, tpr)
+    optimal_idx = np.argmax(tpr - fpr)
+    optimal_threshold = thresholds[optimal_idx]
+    y_pred = (y_scores >= optimal_threshold).astype(int)
+    accuracy = accuracy_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred)
+    recall = recall_score(y_true, y_pred)
+    f1 = f1_score(y_true, y_pred)
+
+    plt.figure()
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    plt.scatter(fpr[optimal_idx], tpr[optimal_idx], marker='o', color='red', label='Optimal Threshold')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(
+        f'step-{step} acc-{round(accuracy, 3)} pre-{round(precision, 3)} rec-{round(recall, 3)} f1-{round(f1, 4)} auroc-{round(roc_auc, 4)}'
+    )
+    plt.legend(loc="lower right")
+    plt.show()
+
+    # 将结果转换为ndarray并返回
+    results = np.array([f1, optimal_threshold, accuracy, precision, recall, roc_auc])
+    return results

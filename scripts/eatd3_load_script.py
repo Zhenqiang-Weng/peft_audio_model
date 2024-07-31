@@ -38,14 +38,14 @@ class EATDDataset(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.TRAIN,
                 gen_kwargs={
                     "split": "train",
-                    "config_path": './config/dataset/EATD.yaml',
+                    "config_path": './config/dataset/EATD3.yaml',
                 },
             ),
             datasets.SplitGenerator(
                 name=datasets.Split.TEST,
                 gen_kwargs={
                     "split": "test",
-                    "config_path": './config/dataset/EATD.yaml',
+                    "config_path": './config/dataset/EATD3.yaml',
                 },
             ),
         ]

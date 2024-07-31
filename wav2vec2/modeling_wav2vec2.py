@@ -681,8 +681,9 @@ class Wav2VecEncoderAdapterLayer(nn.Module):
 
     def forward(self, hidden_states):
         hidden_states = self.down_project(hidden_states)
+        res = hidden_states
         hidden_states = self.intermediate_act_fn(hidden_states)
-        hidden_states = self.up_project(hidden_states)
+        hidden_states = self.up_project(hidden_states) + res
         return hidden_states
 
 
@@ -720,9 +721,10 @@ class Wav2Vec2EncoderLayer(nn.Module):
         hidden_states = self.layer_norm(hidden_states)
 
         if self.adapter2 is not None:
-            hidden_states = self.adapter2(hidden_states)
+            hidden_states = hidden_states + self.adapter2(self.feed_forward(hidden_states))
+        else:
+            hidden_states = hidden_states + self.feed_forward(hidden_states)
 
-        hidden_states = hidden_states + self.feed_forward(hidden_states)
         hidden_states = self.final_layer_norm(hidden_states)
 
         outputs = (hidden_states,)

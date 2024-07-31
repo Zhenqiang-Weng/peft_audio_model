@@ -728,7 +728,7 @@ WHISPER_ATTENTION_CLASSES = {
 
 # Copied from transformers.models.mbart.modeling_mbart.MBartEncoderLayer with MBart->Whisper, MBART->WHISPER
 class WhisperEncoderLayer(nn.Module):
-    def __init__(self, config: WhisperConfig):
+    def __init__(self, config: WhisperConfig, index):
         super().__init__()
         self.embed_dim = config.d_model
 
@@ -746,18 +746,18 @@ class WhisperEncoderLayer(nn.Module):
         self.ff_adapter_layer1 = None
         self.ff_adapter_layer2 = None
 
-        if config.add_adapter:
+        if config.add_adapter and index == config.adapter_layer:
             self.ff_adapter_layer1 = nn.Sequential(
-                nn.Linear(self.embed_dim, config.encoder_ffn_dim),
+                nn.Linear(self.embed_dim, config.adapter_rank),
                 self.activation_fn,
-                nn.Linear(config.encoder_ffn_dim, self.embed_dim),
+                nn.Linear(config.adapter_rank, self.embed_dim),
                 nn.Dropout(config.dropout)
             )
 
             self.ff_adapter_layer2 = nn.Sequential(
-                nn.Linear(self.embed_dim, config.encoder_ffn_dim),
+                nn.Linear(self.embed_dim, config.adapter_rank),
                 ACT2FN[config.activation_function],
-                nn.Linear(config.encoder_ffn_dim, self.embed_dim),
+                nn.Linear(config.adapter_rank, self.embed_dim),
                 nn.Dropout(config.dropout)
             )
 
@@ -794,7 +794,7 @@ class WhisperEncoderLayer(nn.Module):
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
 
         if self.ff_adapter_layer1:
-            hidden_states = self.ff_adapter_layer1(hidden_states)
+            hidden_states = self.ff_adapter_layer1(hidden_states) + hidden_states
 
         hidden_states = residual + hidden_states
 
@@ -806,7 +806,7 @@ class WhisperEncoderLayer(nn.Module):
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
 
         if self.ff_adapter_layer2:
-            hidden_states = self.ff_adapter_layer2(hidden_states)
+            hidden_states = self.ff_adapter_layer2(hidden_states) + hidden_states
 
         hidden_states = residual + hidden_states
 
@@ -1133,7 +1133,7 @@ class WhisperEncoder(WhisperPreTrainedModel):
         self.embed_positions = nn.Embedding(self.max_source_positions, embed_dim)
         self.embed_positions.requires_grad_(False)
 
-        self.layers = nn.ModuleList([WhisperEncoderLayer(config) for _ in range(config.encoder_layers)])
+        self.layers = nn.ModuleList([WhisperEncoderLayer(config, index) for index in range(config.encoder_layers)])
         self.layer_norm = nn.LayerNorm(config.d_model)
 
         self.gradient_checkpointing = False
