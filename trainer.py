@@ -309,7 +309,7 @@ class Trainer:
     """
 
     # Those are used as methods of the Trainer in examples.
-    from .trainer_pt_utils import _get_learning_rate, log_metrics, metrics_format, save_metrics, save_state
+    from transformers.trainer_pt_utils import _get_learning_rate, log_metrics, metrics_format, save_metrics, save_state
 
     def __init__(
             self,
@@ -3114,18 +3114,19 @@ class Trainer:
         dataFrame = pd.DataFrame(predictions, index=eval_dataset['uid'])
         dataFrame.to_csv(os.path.join(self.args.output_dir, 'last.csv'), sep=',', header=None)
 
-
         if 'eatd3' in self.args.output_dir:
             from utils import find_dataframe_optimal_threshold, process_classification_results
             result_data = process_classification_results(os.path.join(self.args.output_dir, 'last.csv'))
             results = find_dataframe_optimal_threshold(result_data, self.state.global_step)
             if self.best_score is None:
                 self.best_score = results[0]
-                result_data.loc[:,['label','Category 2']].to_csv(os.path.join(self.args.output_dir, 'best_d.csv'), sep=',', header=None)
+                result_data.loc[:, ['label', 'Category 2']].to_csv(os.path.join(self.args.output_dir, 'best_d.csv'),
+                                                                   sep=',', header=None)
             else:
                 if results[0] > self.best_score:
                     self.best_score = results[0]
-                    result_data.loc[:,['label','Category 2']].to_csv(os.path.join(self.args.output_dir, 'best_d.csv'), sep=',', header=None)
+                    result_data.loc[:, ['label', 'Category 2']].to_csv(os.path.join(self.args.output_dir, 'best_d.csv'),
+                                                                       sep=',', header=None)
         else:
             from utils import find_best_optimal_threshold
             f1 = find_best_optimal_threshold(os.path.join(self.args.output_dir, 'last.csv'), self.state.global_step)
