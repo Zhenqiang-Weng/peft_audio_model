@@ -74,10 +74,11 @@ class EvaluateMetrics:
     def __init__(self, save_path):
         self.max_f1 = 0
         self.save_path = save_path
+        self.eval_function = eval_metrics
 
     def __call__(self, eval_predict):
-        results, hidden_embeddings, predictions, labels = eval_metrics(eval_predict)
-        if results['f1'] > self.max_f1:
+        results, hidden_embeddings, predictions, labels = self.eval_function(eval_predict)
+        if results['f1'] >= self.max_f1:
             self.max_f1 = results['f1']
             self.save_best_results(results)
             self.save_max_f1_hidden_embeddings(hidden_embeddings)
@@ -130,7 +131,7 @@ def find_best_optimal_threshold(dir, step=1):
     return f1
 
 
-def find_optimal_threshold(dir, step):
+def find_optimal_threshold(dir, step, optimal_threshold=None):
     # 假设y_true是真实的标签，y_scores是模型预测为正类的概率
     data = np.loadtxt(dir, delimiter=',', dtype='float')
     y_true = data[:, 1]
@@ -138,7 +139,7 @@ def find_optimal_threshold(dir, step):
     fpr, tpr, thresholds = roc_curve(y_true, y_scores)
     roc_auc = auc(fpr, tpr)
     optimal_idx = np.argmax(tpr - fpr)
-    optimal_threshold = thresholds[optimal_idx]
+    optimal_threshold = thresholds[optimal_idx] if optimal_threshold is None else optimal_threshold
     y_pred = (y_scores >= optimal_threshold).astype(int)
     accuracy = accuracy_score(y_true, y_pred)
     precision = precision_score(y_true, y_pred)
@@ -205,6 +206,8 @@ def process_classification_results(file_path) -> pd.DataFrame:
     grouped_data = data.groupby(['identity_id', 'label'])['Category 2'].mean().reset_index()
 
     return grouped_data
+
+
 
 
 def find_dataframe_optimal_threshold(data, step):

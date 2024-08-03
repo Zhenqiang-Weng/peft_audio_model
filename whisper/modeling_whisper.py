@@ -2178,8 +2178,8 @@ class WhisperForAudioClassification(WhisperPreTrainedModel):
 
         self.classifier_projector1 = nn.Linear(config.hidden_size, config.classifier_proj_size)
         self.classifier_projector2 = nn.Linear(config.classifier_proj_size, config.classifier_proj_size // 2)
-        self.classifier_projector3 = nn.Linear(config.classifier_proj_size // 2, config.classifier_proj_size // 4)
-        self.classifier = nn.Linear(config.classifier_proj_size // 4, config.num_labels)
+        # self.classifier_projector3 = nn.Linear(config.classifier_proj_size // 2, config.classifier_proj_size // 4)
+        self.classifier = nn.Linear(config.classifier_proj_size // 2, config.num_labels)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -2283,7 +2283,7 @@ class WhisperForAudioClassification(WhisperPreTrainedModel):
 
         hidden_states = self.classifier_projector1(torch.nn.functional.relu(hidden_states))
         hidden_states = self.classifier_projector2(torch.nn.functional.relu(hidden_states))
-        hidden_states = self.classifier_projector3(torch.nn.functional.relu(hidden_states))
+        # hidden_states = self.classifier_projector3(torch.nn.functional.relu(hidden_states))
         pooled_output = hidden_states.mean(dim=1)
 
         logits = self.classifier(pooled_output)
@@ -2328,7 +2328,6 @@ class WhisperForAudioClassification(WhisperPreTrainedModel):
         return SequenceClassifierOutput(
             loss=loss,
             logits=logits,
-            hidden_states=encoder_outputs.last_hidden_state[..., 0,
-                          :] if not self.config.add_adapter else hidden_states[..., 0, :],
+            hidden_states=encoder_outputs[0].mean(1),
             attentions=encoder_outputs.attentions,
         )

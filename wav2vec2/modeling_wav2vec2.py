@@ -680,8 +680,8 @@ class Wav2VecEncoderAdapterLayer(nn.Module):
         self.up_project = nn.Linear(config.adapter_rank, config.hidden_size)
 
     def forward(self, hidden_states):
-        hidden_states = self.down_project(hidden_states)
         res = hidden_states
+        hidden_states = self.down_project(hidden_states)
         hidden_states = self.intermediate_act_fn(hidden_states)
         hidden_states = self.up_project(hidden_states) + res
         return hidden_states
@@ -2064,8 +2064,7 @@ class Wav2Vec2ForSequenceClassification(Wav2Vec2PreTrainedModel):
             self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
         self.classifier_projector1 = nn.Linear(config.hidden_size, config.classifier_proj_size)
         self.classifier_projector2 = nn.Linear(config.classifier_proj_size, config.classifier_proj_size // 2)
-        self.classifier_projector3 = nn.Linear(config.classifier_proj_size // 2, config.classifier_proj_size // 4)
-        self.classifier = nn.Linear(config.classifier_proj_size // 4, config.num_labels)
+        self.classifier = nn.Linear(config.classifier_proj_size // 2, config.num_labels)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -2147,9 +2146,9 @@ class Wav2Vec2ForSequenceClassification(Wav2Vec2PreTrainedModel):
         else:
             hidden_states = outputs[0]
 
+
         hidden_states = self.classifier_projector1(torch.nn.functional.relu(hidden_states))
         hidden_states = self.classifier_projector2(torch.nn.functional.relu(hidden_states))
-        hidden_states = self.classifier_projector3(torch.nn.functional.relu(hidden_states))
 
         if attention_mask is None:
             pooled_output = hidden_states.mean(dim=1)
@@ -2172,8 +2171,7 @@ class Wav2Vec2ForSequenceClassification(Wav2Vec2PreTrainedModel):
         return SequenceClassifierOutput(
             loss=loss,
             logits=logits,
-            hidden_states=outputs.last_hidden_state[..., 0, :] if not self.config.add_adapter else hidden_states[..., 0,
-                                                                                                   :],
+            hidden_states=outputs[0].mean(1),
             attentions=outputs.attentions,
         )
 

@@ -86,7 +86,7 @@ class DataArguments:
 @dataclass
 class ModelArguments:
     model_path: str = field(
-        default="models/chinese-wav2vec2-base",
+        default="models/hubert-base-ls960",
         metadata={"help": " "},
     )
     resume_from_checkpoint: str = field(
@@ -97,15 +97,15 @@ class ModelArguments:
 
 @dataclass
 class StrategyParameters:
-    target_modules = ['q_proj', 'v_proj'],
-    # target_modules = ['attention.k_proj', 'attention.v_proj', 'feed_forward.output_dense'],
-    # feedforward_modules = ['feed_forward.output_dense']
+    # target_modules = ['q_proj', 'v_proj'],
+    target_modules = ['attention.k_proj', 'attention.v_proj', 'feed_forward.output_dense'],
+    feedforward_modules = ['feed_forward.output_dense']
 
 
 @dataclass
 class StrategyArguments:
     strategy: StrategyType = field(
-        default=StrategyType.LORA,
+        default=StrategyType.BITFIT,
         metadata={"help": "Fine-tuning methods"},
     )
     strategy_parameters: StrategyParameters = field(
@@ -330,26 +330,34 @@ def main():
         print(name, para.requires_grad)
 
     # data
+    cache_dir = "F:/cache/audio_pretained_model/cache"
+    with open('config/dataset/' + dataInformationPath) as f:
+        information = yaml.load(f.read(), Loader=yaml.FullLoader)
+    cache_dir += ('/' + str(information['fold_i'])) if 'fold_i' in information.keys() else ''
+
     train_dataset = None
     test_dataset = None
     if data_args.robustness_verification:
         if record_args.do_train:
+
             train_dataset = load_dataset(
+
                 data_args.dataset_script_path_for_train,
+
                 trust_remote_code=True,
-                cache_dir='F:/cache/audio_pretained_model/cache'
+                cache_dir=cache_dir
             ).shuffle()['train']
         if record_args.do_eval:
             test_dataset = load_dataset(
                 data_args.dataset_script_path_for_test,
                 trust_remote_code=True,
-                cache_dir='F:/cache/audio_pretained_model/cache'
+                cache_dir=cache_dir
             ).shuffle()['test']
     else:
         dataset = load_dataset(
             data_args.dataset_script_path,
             trust_remote_code=True,
-            cache_dir='F:/cache/audio_pretained_model/cache'
+            cache_dir=cache_dir
         ).shuffle()
         if record_args.do_train:
             train_dataset = dataset['train']
@@ -373,7 +381,6 @@ def main():
         )
         # output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['label']),
         #                 'attention_mask': inputs['attention_mask']}
-        #
         output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['label'])}
 
         return output_batch
@@ -396,7 +403,6 @@ def main():
         )
         # output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['label']),
         #                 'attention_mask': inputs['attention_mask']}
-        #
         output_batch = {model_input_name: inputs.get(model_input_name), 'labels': list(batch['label'])}
 
         return output_batch
@@ -437,6 +443,8 @@ def main():
     trainer.train(
         resume_from_checkpoint=model_args.resume_from_checkpoint,
     )
+
+    trainer.evaluate()
 
 
 if __name__ == '__main__':
