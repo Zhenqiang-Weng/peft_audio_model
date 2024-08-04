@@ -57,8 +57,9 @@ class DataArguments:
         metadata={"help": ""},
     )
 
+
     dataset_script_path: str = field(
-        default="scripts/eatd3_load_script.py",
+        default="scripts/daic3_load_script.py",
         metadata={"help": " "},
     )
 
@@ -86,7 +87,7 @@ class DataArguments:
 @dataclass
 class ModelArguments:
     model_path: str = field(
-        default="models/hubert-base-ls960",
+        default="models/wav2vec2-base-960h",
         metadata={"help": " "},
     )
     resume_from_checkpoint: str = field(
@@ -97,15 +98,15 @@ class ModelArguments:
 
 @dataclass
 class StrategyParameters:
-    # target_modules = ['q_proj', 'v_proj'],
-    target_modules = ['attention.k_proj', 'attention.v_proj', 'feed_forward.output_dense'],
-    feedforward_modules = ['feed_forward.output_dense']
+    target_modules = ['q_proj', 'v_proj'],
+    # target_modules = ['attention.k_proj', 'attention.v_proj', 'feed_forward.output_dense'],
+    # feedforward_modules = ['feed_forward.output_dense']
 
 
 @dataclass
 class StrategyArguments:
     strategy: StrategyType = field(
-        default=StrategyType.BITFIT,
+        default=StrategyType.ADAPTER,
         metadata={"help": "Fine-tuning methods"},
     )
     strategy_parameters: StrategyParameters = field(

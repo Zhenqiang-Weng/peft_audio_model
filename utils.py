@@ -47,7 +47,7 @@ f1_metric = load_metric("./metrics/f1/f1.py", trust_remote_code=True)
 roc_auc_score = load_metric("./metrics/roc_auc/roc_auc.py", trust_remote_code=True)
 
 
-def eval_metrics(eval_predict):
+def eval_metrics(eval_predict, optimal_threshold=None):
     predictions, labels = eval_predict
     hidden_embeddings = predictions[1]
     predictions = predictions[0]
@@ -56,7 +56,7 @@ def eval_metrics(eval_predict):
     fpr, tpr, thresholds = roc_curve(labels, y_scores)
     roc_auc = auc(fpr, tpr)
     optimal_idx = np.argmax(tpr - fpr)
-    optimal_threshold = thresholds[optimal_idx]
+    optimal_threshold = thresholds[optimal_idx] if optimal_threshold is None else optimal_threshold
     y_pred = (y_scores >= optimal_threshold).astype(int)
     accuracy = accuracy_score(labels, y_pred)
     results = {'accuracy': float(accuracy)}
@@ -77,7 +77,7 @@ class EvaluateMetrics:
         self.eval_function = eval_metrics
 
     def __call__(self, eval_predict):
-        results, hidden_embeddings, predictions, labels = self.eval_function(eval_predict)
+        results, hidden_embeddings, predictions, labels = self.eval_function(eval_predict, 0.5)
         if results['f1'] >= self.max_f1:
             self.max_f1 = results['f1']
             self.save_best_results(results)
@@ -131,20 +131,20 @@ def find_best_optimal_threshold(dir, step=1):
     return f1
 
 
-def find_optimal_threshold(dir, step, optimal_threshold=None):
+def find_optimal_threshold(dir, step, optimal_threshold=None, pos_label=1):
     # 假设y_true是真实的标签，y_scores是模型预测为正类的概率
     data = np.loadtxt(dir, delimiter=',', dtype='float')
     y_true = data[:, 1]
     y_scores = data[:, 2]
-    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+    fpr, tpr, thresholds = roc_curve(y_true=y_true, y_score=y_scores, pos_label=pos_label)
     roc_auc = auc(fpr, tpr)
     optimal_idx = np.argmax(tpr - fpr)
     optimal_threshold = thresholds[optimal_idx] if optimal_threshold is None else optimal_threshold
     y_pred = (y_scores >= optimal_threshold).astype(int)
     accuracy = accuracy_score(y_true, y_pred)
-    precision = precision_score(y_true, y_pred)
-    recall = recall_score(y_true, y_pred)
-    f1 = f1_score(y_true, y_pred)
+    precision = precision_score(y_true=y_true, y_pred=y_pred, pos_label=pos_label)
+    recall = recall_score(y_true=y_true, y_pred=y_pred, pos_label=pos_label)
+    f1 = f1_score(y_true=y_true, y_pred=y_pred, pos_label=pos_label)
 
     plt.figure()
     plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
@@ -208,16 +208,14 @@ def process_classification_results(file_path) -> pd.DataFrame:
     return grouped_data
 
 
-
-
-def find_dataframe_optimal_threshold(data, step):
+def find_dataframe_optimal_threshold(data, step, optimal_threshold=None):
     # 假设y_true是真实的标签，y_scores是模型预测为正类的概率
     y_true = data['label'].values
     y_scores = data['Category 2'].values
     fpr, tpr, thresholds = roc_curve(y_true, y_scores)
     roc_auc = auc(fpr, tpr)
     optimal_idx = np.argmax(tpr - fpr)
-    optimal_threshold = thresholds[optimal_idx]
+    optimal_threshold = thresholds[optimal_idx] if optimal_threshold == None else optimal_threshold
     y_pred = (y_scores >= optimal_threshold).astype(int)
     accuracy = accuracy_score(y_true, y_pred)
     precision = precision_score(y_true, y_pred)
