@@ -10,6 +10,8 @@ from random import randint
 from datasets import load_metric
 import numpy as np
 from sklearn.metrics import roc_curve, auc, precision_score, recall_score, f1_score, accuracy_score
+from sklearn.metrics import roc_auc_score as roc_auc_score2
+
 import matplotlib.pyplot as plt
 import random
 from transformers import TrainerCallback
@@ -29,6 +31,7 @@ class StrategyType(Enum):
     LORA = "lora"
     IA3 = "ia3"
     BITFIT = "bitfit"
+    CLASSFIER = "classfier"
 
 
 def random_subsample(wav: np.ndarray, max_length: float, sample_rate: int = 16000):
@@ -54,7 +57,8 @@ def eval_metrics(eval_predict, optimal_threshold=None):
     predictions = softmax(predictions, axis=1)
     y_scores = predictions[..., 1]
     fpr, tpr, thresholds = roc_curve(labels, y_scores)
-    roc_auc = auc(fpr, tpr)
+    # roc_auc = auc(fpr, tpr)
+    roc_auc = roc_auc_score2(labels, y_scores)
     optimal_idx = np.argmax(tpr - fpr)
     optimal_threshold = thresholds[optimal_idx] if optimal_threshold is None else optimal_threshold
     y_pred = (y_scores >= optimal_threshold).astype(int)
@@ -106,7 +110,8 @@ def find_best_optimal_threshold(dir, step=1):
     y_true = (data[:, 0] > 100000).astype(dtype=np.int32)
     y_scores = data[:, 2]
     fpr, tpr, thresholds = roc_curve(y_true, y_scores)
-    roc_auc = auc(fpr, tpr)
+    # roc_auc = auc(fpr, tpr)
+    roc_auc = roc_auc_score2(y_true,y_scores)
     optimal_idx = np.argmax(tpr - fpr)
     optimal_threshold = thresholds[optimal_idx]
     y_pred = (y_scores >= optimal_threshold).astype(int)

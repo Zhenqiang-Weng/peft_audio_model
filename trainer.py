@@ -3120,14 +3120,14 @@ class Trainer:
             results = find_dataframe_optimal_threshold(result_data, self.state.global_step)
             if self.best_score is None:
                 self.best_score = results[0]
-                result_data.loc[:, ['label', 'Category 2']].to_csv(os.path.join(self.args.output_dir, 'best_d.csv'),
+                result_data.loc[:, ['label', 'Category 2']].to_csv(os.path.join(self.args.output_dir, 'best_i.csv'),
                                                                    sep=',', header=None)
                 np.save(os.path.join(self.args.output_dir, 'best_d'), output[1])
                 np.save(os.path.join(self.args.output_dir, 'best_hidden_embeddings_d'), output[0][1])
             else:
                 if results[0] >= self.best_score:
                     self.best_score = results[0]
-                    result_data.loc[:, ['label', 'Category 2']].to_csv(os.path.join(self.args.output_dir, 'best_d.csv'),
+                    result_data.loc[:, ['label', 'Category 2']].to_csv(os.path.join(self.args.output_dir, 'best_i.csv'),
                                                                        sep=',', header=None)
                     np.save(os.path.join(self.args.output_dir, 'best_d'), output[1])
                     np.save(os.path.join(self.args.output_dir, 'best_hidden_embeddings_d'), output[0][1])

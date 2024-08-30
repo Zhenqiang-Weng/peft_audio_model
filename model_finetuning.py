@@ -26,7 +26,7 @@ from transformers import (
 
 from trainer import Trainer
 
-from wav2vec2 import Wav2Vec2ForSequenceClassification, Wav2Vec2FeatureExtractor
+from wav2vec2 import Wav2Vec2ForSequenceClassification, Wav2Vec2ForAudioFrameClassification
 from hubert import HubertForSequenceClassification, HubertModel
 from wavlm import WavLMForSequenceClassification, WavLMModel
 from whisper import WhisperForAudioClassification, WhisperModel
@@ -57,9 +57,8 @@ class DataArguments:
         metadata={"help": ""},
     )
 
-
     dataset_script_path: str = field(
-        default="scripts/daic3_load_script.py",
+        default="scripts/eatd3_load_script.py",
         metadata={"help": " "},
     )
 
@@ -69,7 +68,7 @@ class DataArguments:
     )
 
     dataset_script_path_for_train: str = field(
-        default="scripts/edaic_load_scripts2.py",
+        default="scripts/eatd5_load_script.py",
         metadata={"help": " "},
     )
 
@@ -87,7 +86,7 @@ class DataArguments:
 @dataclass
 class ModelArguments:
     model_path: str = field(
-        default="models/wav2vec2-base-960h",
+        default="models/hubert-base-ls960",
         metadata={"help": " "},
     )
     resume_from_checkpoint: str = field(
@@ -98,15 +97,17 @@ class ModelArguments:
 
 @dataclass
 class StrategyParameters:
-    target_modules = ['q_proj', 'v_proj'],
-    # target_modules = ['attention.k_proj', 'attention.v_proj', 'feed_forward.output_dense'],
-    # feedforward_modules = ['feed_forward.output_dense']
+    # target_modules = ['q_proj', 'v_proj'],
+    target_modules = ['attention.k_proj', 'attention.v_proj', 'feed_forward.output_dense'],
+    feedforward_modules = ['feed_forward.output_dense']
+    # target_modules = ['self_attn.k_proj', 'self_attn.v_proj', 'fc2'],
+    # feedforward_modules = ['fc2']
 
 
 @dataclass
 class StrategyArguments:
     strategy: StrategyType = field(
-        default=StrategyType.ADAPTER,
+        default=StrategyType.IA3,
         metadata={"help": "Fine-tuning methods"},
     )
     strategy_parameters: StrategyParameters = field(
@@ -322,6 +323,20 @@ def main():
             f"total parameters:{total_params},trainable parameters:{trainable_params},r:{trainable_params / total_params}"
         )
         print(model)
+    elif strategy_args.strategy.value == 'classfier':
+        # adapter ft
+        total_params = 0
+        trainable_params = 0
+        for name, parameters in model.named_parameters():
+            total_params += parameters.numel()
+            if 'classifier' in name:
+                trainable_params += parameters.numel()
+            else:
+                parameters.requires_grad = False
+        print(
+            f"total parameters:{total_params},trainable parameters:{trainable_params},r:{trainable_params / total_params}"
+        )
+        print(model)
 
     for name, parameters in model.named_parameters():
         if 'classifier' in name or 'layer_norm' in name:
@@ -340,7 +355,6 @@ def main():
     test_dataset = None
     if data_args.robustness_verification:
         if record_args.do_train:
-
             train_dataset = load_dataset(
 
                 data_args.dataset_script_path_for_train,

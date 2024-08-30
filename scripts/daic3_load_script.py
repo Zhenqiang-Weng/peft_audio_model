@@ -63,6 +63,7 @@ class EATDATASET(datasets.GeneratorBasedBuilder):
             label = int(parts[2])
             suffix = int(parts[3])
             path = os.path.join(root, audio_dir, det)
+
             uid = label * 100000 + d_id*100 + suffix
             with open(path, 'rb') as f:
                 yield sid, {
