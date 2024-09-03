@@ -107,7 +107,7 @@ class StrategyParameters:
 @dataclass
 class StrategyArguments:
     strategy: StrategyType = field(
-        default=StrategyType.IA3,
+        default=StrategyType.BITFIT,
         metadata={"help": "Fine-tuning methods"},
     )
     strategy_parameters: StrategyParameters = field(
@@ -201,7 +201,7 @@ def main():
     )
     data_args, model_args, hyperparameter_args, strategy_args, record_args = parser.parse_args_into_dataclasses()
 
-    output_dir = 'F:/cache/audio_pretained_model/checkpoints/' + strategy_args.strategy.value + '/'
+    output_dir = 'F:/cache2/audio_pretained_model/checkpoints/' + strategy_args.strategy.value + '/'
 
     if data_args.robustness_verification:
         output_dir += "robustness_verification/" + \
