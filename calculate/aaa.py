@@ -15,7 +15,7 @@ from transformers import (
 )
 from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices
 
-model = WhisperForConditionalGeneration.from_pretrained('models/whisper-base')
+model = WhisperForConditionalGeneration.from_pretrained('../models/whisper-base')
 # model = Wav2Vec2ForPreTraining.from_pretrained('models/wavlm-large')
 # model = WavLMModel.from_pretrained('models/wavlm-base')
 

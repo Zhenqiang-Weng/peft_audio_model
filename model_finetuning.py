@@ -468,6 +468,6 @@ if __name__ == '__main__':
 
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
-    # init_seed(0)
+    init_seed(0)
 
     main()
