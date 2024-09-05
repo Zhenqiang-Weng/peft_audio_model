@@ -1,6 +1,6 @@
 _pycache_
 data/
-models/
+models/*
 checkpoints/
 weights/
 .idea
