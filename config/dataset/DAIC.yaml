@@ -1,4 +1,0 @@
-
-root: 'data/WOZ_DAIC'
-audio_file: 'dataCropped'
-cache: './cache'
