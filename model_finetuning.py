@@ -172,22 +172,6 @@ class RecordArguments:
     )
 
 
-@dataclass
-class DataCollatorSpeechSeq2SeqWithPadding:
-    processor: Any
-
-    def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
-        input_features = [{"input_features": feature["input_features"]} for feature in features]
-        batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
-
-        # feature名字需要按basemodel的输入名称修改，待定
-        label_features = [{"input_ids": feature["labels"]} for feature in features]
-
-        # 此处尚未写label以及其他！！！！
-        # batch["labels"] = labels
-
-        return batch
-
 
 def main():
     parser = HfArgumentParser(
